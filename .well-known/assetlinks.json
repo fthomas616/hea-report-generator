@@ -1,0 +1,12 @@
+[{
+  "relation": [
+    "delegate_permission/common.handle_all_urls"
+  ],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.hea.reportgenerator",
+    "sha256_cert_fingerprints": [
+      "E7:1A:79:3E:63:AD:B4:AB:B0:AE:BC:DC:63:4D:6D:25:44:37:E2:6B:B9:09:DB:0F:5A:00:14:E9:C8:23:7B:F6"
+    ]
+  }
+}]

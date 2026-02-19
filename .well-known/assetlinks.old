@@ -1,0 +1,25 @@
+Alias name: android
+Creation date: Feb 16, 2026
+Entry type: PrivateKeyEntry
+Certificate chain length: 1
+Certificate[1]:
+Owner: CN=Frank Thomas, OU=Application Development, O=HEA Solutions, L=Unknown, ST=Unknown, C=US
+Issuer: CN=Frank Thomas, OU=Application Development, O=HEA Solutions, L=Unknown, ST=Unknown, C=US
+Serial number: e0d319d180fb3f97
+Valid from: Mon Feb 16 23:15:47 EST 2026 until: Sat Jul 05 00:15:47 EDT 2053
+Certificate fingerprints:
+         SHA1: D1:10:66:23:AB:94:5A:87:3A:AA:C1:2F:A2:DA:AE:DD:DC:FA:A6:0B
+         SHA256: E7:1A:79:3E:63:AD:B4:AB:B0:AE:BC:DC:63:4D:6D:25:44:37:E2:6B:B9:09:DB:0F:5A:00:14:E9:C8:23:7B:F6
+Signature algorithm name: SHA256withRSA
+Subject Public Key Algorithm: 2048-bit RSA key
+Version: 3
+
+Extensions:
+
+#1: ObjectId: 2.5.29.14 Criticality=false
+SubjectKeyIdentifier [
+KeyIdentifier [
+0000: 97 5C C1 FE 6D C3 5A 85   E9 F9 AB 12 EB 91 49 50  .\..m.Z.......IP
+0010: 87 E6 52 86                                        ..R.
+]
+]

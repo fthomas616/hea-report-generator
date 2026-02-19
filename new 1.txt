@@ -1,0 +1,57 @@
+would like these details added back in:
+
+5. Peak Period Analysis
+Peak Hours Schedule (Winter - October to May)
+•	Morning Peak: 6:00 AM - 9:00 AM (Mon-Fri)
+•	Evening Peak: 5:00 PM - 9:00 PM (Mon-Fri)
+•	Off-Peak: All weekends, national holidays, and all hours outside peak windows
+Billing Period: 32 days (~23 weekdays)
+Peak Hour Rates (All-In Costs)
+Rate Type	Supply	Delivery/Fees	All-In	vs Flat ($0.2107)
+Peak	$0.2240	$0.0783	$0.3023	+43.5% (penalty)
+Off-Peak	$0.1060	$0.0783	$0.1843	-12.5% (savings)
+Peak Performance - Outstanding Achievement
+Metric	Value	Grade
+Peak Slots Detected	2445 slots	-
+Slots Covered by Battery	2353 slots	-
+Peak Slot Coverage	96.2%	A+
+Inverter Peak Energy	74.6 kWh	-
+Grid Peak Energy	11.8 kWh	-
+Total Peak Window Energy	86.4 kWh	-
+Battery Share of Peak	86.3%	A+
+•	Only 39 kWh used during peak hours (3.5% of total)
+•	1075 kWh during off-peak hours (96.5% of total)
+
+
+and these details:
+
+8. Discharge Cycles
+Metric	Details
+Longest No-Recharge Period	~48 hours (2 full calendar days)
+Dates	December 2, 2025 – December 3, 2025
+Starting SOC (highest)	~95%
+Ending SOC (lowest)	~38%
+SOC Drop	~57% (≈5.7 kWh from 10 kWh battery)
+Total kWh Discharged During Period	~4.5 kWh
+Average Discharge Power	~94W (very light load)
+Explanation	Low-demand period (likely weekend/holiday). No longer continuous no-charge period was found — system recharges daily or every other day from cheap off-peak grid power.
+
+
+and update alerts with this type of information:
+
+ Alerts & Notifications
+•	Missed Peak Slot Cost Analysis: 92 of 2445 slots (3.8%), estimated cost $1.84 - $4.60; alert threshold $1.50; status: REVIEW
+•	EPS Overload Monitor: No EPS overloads detected; inverter operated within capacity
+
+when available.   I don't think these update request are redudent.  But provides me a bit more detailed information.  
+
+
+One other thing.  when auto extracting from PDF it doesn't bring over the date or the correct Total Cost. Attached is and example, I hoping you can fix.
+
+here is the output from the auto extraction:   FRANK L THOMAS Account Number:   5002 5953 840  Service  Address :   616 STILLWATER PL   MITCHELLVILLE MD 20721  FEBRUARY 2026  Billing Period:   1-3-2026  to  2-2-2026  Bill Issue Date:   2-3-2026  ELECTRIC BILL SUMMARY     Previous Balance       $216.25  Payment(s) Received   Thank you       $216.25−  Balance as of  Feb 3, 2026       $0.00  Delivery         $71.10  Supply         $114.54  Total Amount Due by  Feb 24, 2026   $185.64  After  Feb  24,  2026,  a  late  payment  charge  of  $2.77  will  be  added,  increasing the amount due to $188.41.  To  view  your  usage,  see  the  Electric  Details  portion  of  this  bill  or  log into your account at pepco.com.  Additional messages may be on the last page of your bill.  CONTACT US  Customer Service ( 7 a.m. - 8 p.m .)   202-833-7500 TTY English   1-800-735-2258 TTY Spanish   1-800-877-1264 ¿Problemas con la factura?   202-833-7500 Electric Emergencies & Outages  (24 hrs)   1-877-737-2662  pepco.com/ContactUs   Please tear on the dotted line below .  Invoice Number:  200232658147   Page  1  of  4  Return this coupon  with your payment  made payable to  Pepco .  FRANK L THOMAS 616 STILLWATER PL MITCHELLVILLE MD 20721  Account number   5002 5953 840  Total amount due by Feb 24, 2026    $185.64  Total amount due after  Feb 24, 2026    $188.41  $   . Amount  Paid:  PO BOX 13608 PHILADELPHIA PA 19101  700001500259538400000000000000000000000185640000000185641012  Delivery $71.10 Total Amount Due  $185.64  Supply $114.54  01 00000008 000000017  0MR00009
+FRANK L THOMAS   Your  electric  bill for the period   Account number:  5002 5953 840   January 3, 2026  to  February 2, 2026  Details of your  Electric  Charges  Residential Time of Use Pilot  - service number  0500 2595 3840 7001 8917 62   Electricity  you used this period        Meter       Number         Energy Type         End  Date       Start  Date           Number      Of Days     Total       Use NXA111186335   Use (kWh)   Feb 2   Jan 3   31   973 On-Peak Use (kWh)   Feb 2   Jan 3   31   53 Off-Peak Usage  (kWh) Feb 2   Jan 3   31   920 Total use-kWh   973  Your meter records hourly use. Total use is the sum of this hourly data. Please visit My Account at  pepco.com  to view your energy use data.  Your next bill period is scheduled to end on  March 2, 2026 Delivery Charges:    These charges reflect the cost of bringing  electricity   to you.  Current charges for  31  days,  winter  rates in effect. Type of charge   How we calculate this charge   Amount($)  Distribution Services: Customer Charge       8.44 MYP Adjustment   973 kWh X $0.0032630- per kWh       3.17− On-Peak Energy   53 kWh X $0.0935000 per kWh       4.96 Off-Peak Energy   920 kWh X $0.0287600 per kWh       26.46 Franchise Tax (Delivery)   973 kWh X $0.0006200 per kWh       0.60 Universal Service Charge       0.32 MD Environmental  Surcharge   973 kWh X $0.0001510 per kWh       0.15 EmPOWER Maryland  Charge   973 kWh X $0.0206180 per kWh       20.06 Gross Receipts Tax   at 2.0408%       1.18 Prince George's County  Energy Tax   973 kWh X $0.0136630 per kWh       13.29 Administrative Credit   973 kWh X $0.0012200- per kWh       1.19−  Page  2  of  4  Customer Service Centers  Washington DC 701 Ninth St NW     (Mon - Fri) 8:30am - 5:15pm  2300 Martin Luther King Jr Ave SE   (Mon - Fri) 9:00am - 5:00pm   Any inquiry or complaint about this bill should be made prior to the due date, in order to avoid late charges. Electronic  Check  Conversion  -  When  you  provide  a  check  as  payment,  you  authorize  us  either  to  use  information  from  your  check  to  make  a  one-time electronic fund transfer from your account or to process the payment as a check transaction.  Printed on recyclable paper.  By  signing  here,  you  authorize  Pepco   to  electronically  deduct  the  amount  of  your  monthly  bill  from  your  checking  account  each  month.  The  check  you  send  with  this  signed  authorization  will  be  used  to  set  up  Direct  Debit.  You  understand  that  we  will  notify  you  each  month  of  the  date  and  amount  of  the  debit,  which  will  be  on  or  after  the  due  date  stated  on  your  monthly  bill.  You  understand  that  to  withdraw  this  authorization  you  must  call  Pepco .  You  understand  that  Pepco   does  not  charge  for  this  service,  but  that  your  bank  may  have  charges  for  this  service.  Check here to enroll in the Direct Debit plan   Sign and date here
+FRANK L THOMAS   Your  electric  bill for the period   Account number:  5002 5953 840   January 3, 2026  to  February 2, 2026  Total  Electric  Delivery Charges       71.10 Supply Charges:  These charges reflect the cost of producing  electricity   for you .  Billing Period:   Jan 3, 2026  to  Feb 2, 2026  ( 31  days) Type of charge   How we calculate this charge   Amount($)  Generation Services: On-Peak Energy   53 kWh X $0.2239623 per kWh       11.87 Off-Peak Energy   920 kWh X $0.1059674 per kWh       97.49 Procurement Cost  Adjustment   973 kWh X $0.0053220 per kWh       5.18  Total  Electric  Supply Charges       114.54 Total  Electric  Charges  - Residential Time of Use Pilot       185.64  Your monthly  Electricity  use in  kWh  Daily temperature averages :     Feb 2026 :  33 ° F kWh  Year  0 230 460  690 920 1150  24   25   24   25   24   25   24   25   24   25   24   25   24   25   24   25   24   25   24   25   25   26   25   26  Month   Mar   Apr   May   Jun   Jul   Aug   Sep   Oct   Nov   Dec   Jan   Feb   on peak         intermediate peak         off peak  Your daily  electricity  use for this bill period. Visit My Account at  pepco .com to see your hourly  electricity  use.  Meter Number  NXA111186335  Temp       32   36   35   41   48   44   45   47   43   39   42   47   33   30   39   35   32   27   31   46   37   17   19   23   22   21   20   18   16   19   27  kWh       0   20   40   60   80   100   Date     03   04   05   06   07   08   09   10   11   12   13   14   15   16   17   18   19   20   21   22   23   24   25   26   27   28   29   30   31   01   02  Your smart electric meter is read wirelessly. Visit My Account at pepco.com to view your daily and hourly energy usage. The Maryland Legislative Energy Relief Fund for winter 2026 is being distributed starting in February because of legislative action by the  Maryland General Assembly. Learn more: pepco.com/BillSupport. Pepco EV charging stations are in a neighborhood near you, learn more here Pepco.com/ev. If you are moving or discontinuing service, please contact Pepco at least three days in advance. Information regarding rate schedules and how to verify the accuracy of your bill will be mailed upon request. Follow us on Twitter at twitter.com/PepcoConnect. Like us on Facebook at facebook.com/PepcoConnect.  Page  3  of  4  01 00000008 000000018
+FRANK L THOMAS   Your  electric  bill for the period   Account number:  5002 5953 840   January 3, 2026  to  February 2, 2026  The EmPOWER MD charge funds programs that can help you reduce your energy consumption and save you money. For more information,  including how to participate, go to pepco.com/WaysToSave. You can help a Pepco customer in need of assistance with their energy bills by contributing to the Good Neighbor Energy Fund. Simply pay  exactly $1.00 over your Pepco bill amount and that dollar will be contributed to the Good Neighbor Energy Fund administered by a 501(c)3  non-profit organization in your community. Program contributions must be exactly $1.00 over the billed amount; amounts over $1.00 will  not  be  identified  as  a  program  contribution  and  will  result  in  a  credit  to  your  account.  Pepco  will  match  each  donation  by  contributing  a  dollar  to the fund, up to $100,000.  Page  4  of  4
+
+
+But as you can see in the image attached.  it doesn't bring over the start date or end date nore the correct Total amount.   Is there away for that to be fixed in addition to the request changes above.

@@ -1,0 +1,31 @@
+
+Total use-kWh 1114
+Delivery Charges: These charges reflect the cost of bringing electricity to you.
+Current charges for 32 days, winter rates in effect.
+Type of charge How we calculate this charge Amount($)
+Distribution Services:
+Customer Charge 8.44
+MYP Adjustment 1114 kWh X $0.0041080 per kWh 4.57
+On-Peak Energy 39 kWh X $0.0935000 per kWh 3.65
+Off-Peak Energy 1075 kWh X $0.0287600 per kWh 30.92
+Franchise Tax (Delivery) 1114 kWh X $0.0006200 per kWh 0.69
+Universal Service Charge 0.32
+MD Environmental
+Surcharge 1114 kWh X $0.0001510 per kWh 0.17
+EmPOWER Maryland
+Charge 1114 kWh X $0.0206180 per kWh 22.97
+Gross Receipts Tax at 2.0408% 1.46
+Prince George's County
+Energy Tax 1114 kWh X $0.0136630 per kWh 15.22
+Administrative Credit 1114 kWh X $0.0011100- per kWh 1.24−
+Total Electric Delivery Charges 87.17
+Supply Charges: These charges reflect the cost of producing electricity for you.
+Billing Period: Dec 2, 2025 to Jan 2, 2026 (32 days)
+Type of charge How we calculate this charge Amount($)
+Generation Services:
+On-Peak Energy 39 kWh X $0.2240300 per kWh 8.75
+Off-Peak Energy 1075 kWh X $0.1059900 per kWh 113.95
+Procurement Cost
+Adjustment 1114 kWh X $0.0057254 per kWh 6.38
+Total Electric Supply Charges 129.08
+Total Electric Charges - Residential Time of Use Pilot 216.25

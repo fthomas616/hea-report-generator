@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEA System Configuration</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Segoe UI',Arial,sans-serif; background:linear-gradient(135deg,#1e3c72,#2a5298); min-height:100vh; padding:20px; color:#333; line-height:1.6; }
+    .setup-container { max-width:700px; margin:0 auto; background:white; border-radius:16px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+    .setup-header { background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:30px; text-align:center; }
+    .setup-header h2 { font-size:26px; margin-bottom:8px; }
+    .setup-header p { opacity:0.9; font-size:15px; }
+    .setup-body { padding:30px; }
+
+    /* Progress */
+    .setup-progress { display:flex; justify-content:center; align-items:center; gap:0; margin-bottom:30px; }
+    .progress-step { display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .progress-dot { width:36px; height:36px; border-radius:50%; background:#e9ecef; color:#adb5bd; font-weight:700; font-size:15px; display:flex; align-items:center; justify-content:center; transition:all 0.3s; }
+    .progress-dot.active { background:linear-gradient(135deg,#667eea,#764ba2); color:white; box-shadow:0 4px 12px rgba(102,126,234,0.4); }
+    .progress-dot.done { background:#28a745; color:white; }
+    .progress-label { font-size:11px; color:#6c757d; text-align:center; font-weight:600; white-space:nowrap; }
+    .progress-line { width:40px; height:2px; background:#e9ecef; margin-bottom:16px; transition:background 0.3s; }
+    .progress-line.done { background:#28a745; }
+
+    /* Sections */
+    .setup-section { display:none; }
+    .setup-section.active { display:block; }
+    .setup-section h3 { font-size:18px; color:#667eea; margin-bottom:20px; padding-bottom:10px; border-bottom:2px solid #f0f0f0; }
+    .section-divider { background:#f8f9fa; border-left:4px solid #667eea; padding:10px 15px; margin:20px 0 15px; border-radius:0 6px 6px 0; font-weight:700; font-size:13px; color:#495057; }
+
+    /* Form */
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-bottom:15px; }
+    .form-row.three { grid-template-columns:1fr 1fr 1fr; }
+    .form-row.one { grid-template-columns:1fr; }
+    @media(max-width:600px) { .form-row,.form-row.three { grid-template-columns:1fr; } }
+    .form-group { display:flex; flex-direction:column; gap:6px; }
+    .form-group label { font-weight:600; font-size:13px; color:#495057; }
+    .form-group input, .form-group select { padding:10px 12px; border:1px solid #ced4da; border-radius:6px; font-size:14px; background:white; }
+    .form-group input:focus, .form-group select:focus { outline:none; border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,0.15); }
+    .hint { font-size:11px; color:#adb5bd; margin-top:2px; }
+    .calc-field { background:#e8f5e9; border:1px solid #28a745; border-radius:6px; padding:10px 12px; font-size:14px; font-weight:700; color:#155724; }
+    .rate-wrap { position:relative; }
+    .rate-wrap span { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#6c757d; font-weight:600; }
+    .rate-wrap input { padding-left:24px; }
+
+    /* TOU blocks */
+    .tou-block { background:#f8f9fa; border:1px solid #dee2e6; border-radius:8px; padding:15px; margin-bottom:12px; }
+    .tou-block-title { font-weight:700; font-size:13px; color:#667eea; margin-bottom:10px; }
+    .time-range { display:flex; align-items:center; gap:8px; }
+    .time-range select { flex:1; font-size:13px; padding:8px; border:1px solid #ced4da; border-radius:6px; }
+    .time-range span { color:#6c757d; font-weight:600; font-size:13px; }
+
+    /* Day checkboxes */
+    .day-checkboxes { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .day-check { display:flex; align-items:center; gap:5px; background:#e9ecef; padding:6px 12px; border-radius:20px; cursor:pointer; font-size:13px; font-weight:600; transition:all 0.2s; user-select:none; }
+    .day-check.checked { background:linear-gradient(135deg,#667eea,#764ba2); color:white; }
+
+    /* Month toggles */
+    .month-checkboxes { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+    .month-check { background:#e9ecef; padding:6px 12px; border-radius:15px; cursor:pointer; font-size:13px; font-weight:600; transition:all 0.2s; user-select:none; }
+    .month-check.s1 { background:#667eea; color:white; }
+    .month-check.s2 { background:#28a745; color:white; }
+
+    /* Nav */
+    .setup-nav { display:flex; justify-content:space-between; align-items:center; margin-top:30px; padding-top:20px; border-top:1px solid #e9ecef; }
+    .btn-setup { padding:12px 28px; border:none; border-radius:8px; font-size:15px; font-weight:700; cursor:pointer; transition:all 0.2s; }
+    .btn-next { background:linear-gradient(135deg,#667eea,#764ba2); color:white; }
+    .btn-next:hover { transform:translateY(-2px); box-shadow:0 5px 15px rgba(102,126,234,0.4); }
+    .btn-back { background:#e9ecef; color:#495057; }
+    .btn-save { background:linear-gradient(135deg,#28a745,#20c997); color:white; }
+    .btn-save:hover { transform:translateY(-2px); box-shadow:0 5px 15px rgba(40,167,69,0.4); }
+    .season-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
+    .season-card { border-radius:8px; padding:12px; font-size:12px; line-height:1.8; }
+  </style>
+</head>
+<body>
+<div class="setup-container">
+  <div class="setup-header">
+    <div style="font-size:40px; margin-bottom:10px;">🔋</div>
+    <h2 id="pageTitle">HEA System Configuration</h2>
+    <p id="pageSubtitle">Set up your system once — never enter it again</p>
+  </div>
+  <div class="setup-body">
+
+    <!-- Progress Bar -->
+    <div class="setup-progress">
+      <div class="progress-step">
+        <div class="progress-dot active" id="dot1">1</div>
+        <div class="progress-label">System</div>
+      </div>
+      <div class="progress-line" id="line1"></div>
+      <div class="progress-step">
+        <div class="progress-dot" id="dot2">2</div>
+        <div class="progress-label">TOU Hours</div>
+      </div>
+      <div class="progress-line" id="line2"></div>
+      <div class="progress-step">
+        <div class="progress-dot" id="dot3">3</div>
+        <div class="progress-label">Seasons</div>
+      </div>
+      <div class="progress-line" id="line3"></div>
+      <div class="progress-step">
+        <div class="progress-dot" id="dot4">4</div>
+        <div class="progress-label">Rates</div>
+      </div>
+    </div>
+
+    <!-- ── STEP 1: HARDWARE ───────────────────────── -->
+    <div class="setup-section active" id="step1">
+      <h3>⚡ Step 1 of 4 — Your System Hardware</h3>
+
+      <div class="section-divider">🔌 Inverter</div>
+      <div class="form-row three">
+        <div class="form-group">
+          <label>Brand</label>
+          <select id="inverterBrand">
+            <option value="EG4">EG4</option>
+            <option value="Victron">Victron</option>
+            <option value="Sol-Ark">Sol-Ark</option>
+            <option value="Growatt">Growatt</option>
+            <option value="Deye">Deye</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input type="text" id="inverterModel" value="6000XP">
+        </div>
+        <div class="form-group">
+          <label>Count</label>
+          <select id="inverterCount" onchange="calcKw()">
+            <option value="1">1</option>
+            <option value="2">2 (Parallel)</option>
+            <option value="3">3</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>kW Per Unit</label>
+          <input type="number" id="inverterKwEach" value="6" step="0.1" oninput="calcKw()">
+        </div>
+        <div class="form-group">
+          <label>Total System kW</label>
+          <div class="calc-field" id="totalKw">6.0 kW</div>
+        </div>
+      </div>
+
+      <div class="section-divider">🔋 Battery</div>
+      <div class="form-row three">
+        <div class="form-group">
+          <label>Brand</label>
+          <select id="batteryBrand">
+            <option value="Eco-Worthy">Eco-Worthy</option>
+            <option value="Pylontech">Pylontech</option>
+            <option value="LiTime">LiTime</option>
+            <option value="SOK">SOK</option>
+            <option value="Ampere Time">Ampere Time</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Model</label>
+          <input type="text" id="batteryModel" value="48V 100Ah V3">
+        </div>
+        <div class="form-group">
+          <label>Count</label>
+          <select id="batteryCount" onchange="calcKwh()">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="6">6</option>
+            <option value="8">8</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>kWh Per Battery</label>
+          <input type="number" id="batteryKwhEach" value="5.12" step="0.01" oninput="calcKwh()">
+        </div>
+        <div class="form-group">
+          <label>Total Battery kWh</label>
+          <div class="calc-field" id="totalKwh">20.48 kWh</div>
+        </div>
+      </div>
+
+      <div class="section-divider">☀️ Solar &amp; Switch</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Solar Watts <span style="font-weight:400;color:#adb5bd;">(optional)</span></label>
+          <input type="number" id="solarWatts" value="440" step="10">
+        </div>
+        <div class="form-group">
+          <label>Solar Controller</label>
+          <select id="solarController">
+            <option value="Delta 2 Max">EcoFlow Delta 2 Max</option>
+            <option value="Delta Pro">EcoFlow Delta Pro</option>
+            <option value="EG4 MPPT">EG4 MPPT</option>
+            <option value="Victron MPPT">Victron MPPT</option>
+            <option value="None">No Solar</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Transfer Switch</label>
+          <select id="transferSwitch">
+            <option value="Reliance 510C 50A">Reliance 510C 50A</option>
+            <option value="Reliance 310C 30A">Reliance 310C 30A</option>
+            <option value="Generac 200A">Generac 200A</option>
+            <option value="None">None</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Utility Company</label>
+          <select id="utilityCompany" onchange="preloadUtility()">
+            <option value="PEPCO">PEPCO (MD/DC/VA)</option>
+            <option value="BGE">BGE (Maryland)</option>
+            <option value="Dominion">Dominion (Virginia)</option>
+            <option value="PGE">PG&amp;E (California)</option>
+            <option value="SCE">SCE (California)</option>
+            <option value="Oncor">Oncor (Texas)</option>
+            <option value="FPL">FPL (Florida)</option>
+            <option value="APS">APS (Arizona)</option>
+            <option value="Duke">Duke Energy</option>
+            <option value="ConEd">ConEd (New York)</option>
+            <option value="Other">Other / Custom</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>System Cost ($) <span style="font-weight:400;color:#adb5bd;">for ROI tracking</span></label>
+          <div class="rate-wrap">
+            <span>$</span>
+            <input type="number" id="systemCost" value="0" step="100">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Install Date <span style="font-weight:400;color:#adb5bd;">for ROI tracking</span></label>
+          <input type="month" id="installDate">
+        </div>
+      </div>
+
+      <div class="setup-nav">
+        <div></div>
+        <button class="btn-setup btn-next" onclick="goStep(2)">Next: TOU Hours →</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 2: TOU HOURS BY SEASON ────────────── -->
+    <div class="setup-section" id="step2">
+      <h3>⏰ Step 2 of 4 — TOU Hours &amp; Seasons</h3>
+      <p style="color:#6c757d;font-size:13px;margin-bottom:20px;">
+        Name your seasons and set peak hours for each. Your battery uses
+        these to know exactly when it must cover your load.
+      </p>
+
+      <!-- SEASON 1 -->
+      <div class="tou-block" style="border:2px solid #667eea;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span style="font-size:22px;">❄️</span>
+          <input type="text" id="season1Name" value="Winter"
+            style="border:none;border-bottom:2px solid #667eea;border-radius:0;
+                   font-size:17px;font-weight:700;color:#667eea;flex:1;
+                   padding:2px 4px;background:transparent;"
+            placeholder="Season 1 name">
+          <span style="font-size:11px;color:#adb5bd;">tap to edit</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">🌅 Morning Peak</div>
+            <div class="time-range">
+              <select id="s1MornStart"><option value="none">None</option><option value="5">5AM</option><option value="6" selected>6AM</option><option value="7">7AM</option><option value="8">8AM</option></select>
+              <span>→</span>
+              <select id="s1MornEnd"><option value="none">—</option><option value="7">7AM</option><option value="8">8AM</option><option value="9" selected>9AM</option><option value="10">10AM</option></select>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#667eea;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">🌆 Evening Peak</div>
+            <div class="time-range">
+              <select id="s1EveStart"><option value="none">None</option><option value="14">2PM</option><option value="15">3PM</option><option value="16">4PM</option><option value="17" selected>5PM</option><option value="18">6PM</option></select>
+              <span>→</span>
+              <select id="s1EveEnd"><option value="19">7PM</option><option value="20">8PM</option><option value="21" selected>9PM</option><option value="22">10PM</option></select>
+            </div>
+          </div>
+        </div>
+        <div style="background:rgba(102,126,234,0.08);border-radius:5px;padding:7px 10px;font-size:11px;color:#667eea;">⚡ Off-Peak: all hours outside above windows — auto calculated</div>
+      </div>
+
+      <!-- SEASON 2 -->
+      <div class="tou-block" style="border:2px solid #28a745;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+          <span style="font-size:22px;">☀️</span>
+          <input type="text" id="season2Name" value="Summer"
+            style="border:none;border-bottom:2px solid #28a745;border-radius:0;
+                   font-size:17px;font-weight:700;color:#28a745;flex:1;
+                   padding:2px 4px;background:transparent;"
+            placeholder="Season 2 name">
+          <span style="font-size:11px;color:#adb5bd;">tap to edit</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#28a745;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">🌅 Morning Peak</div>
+            <div class="time-range">
+              <select id="s2MornStart"><option value="none" selected>None</option><option value="5">5AM</option><option value="6">6AM</option><option value="7">7AM</option><option value="8">8AM</option></select>
+              <span>→</span>
+              <select id="s2MornEnd"><option value="none" selected>—</option><option value="7">7AM</option><option value="8">8AM</option><option value="9">9AM</option><option value="10">10AM</option></select>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#28a745;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">🌆 Evening Peak</div>
+            <div class="time-range">
+              <select id="s2EveStart"><option value="none">None</option><option value="14">2PM</option><option value="15" selected>3PM</option><option value="16">4PM</option><option value="17">5PM</option><option value="18">6PM</option></select>
+              <span>→</span>
+              <select id="s2EveEnd"><option value="19">7PM</option><option value="20" selected>8PM</option><option value="21">9PM</option><option value="22">10PM</option></select>
+            </div>
+          </div>
+        </div>
+        <div style="background:rgba(40,167,69,0.08);border-radius:5px;padding:7px 10px;font-size:11px;color:#28a745;">⚡ Off-Peak: all hours outside above windows — auto calculated</div>
+      </div>
+
+      <!-- PEAK DAYS -->
+      <div class="tou-block">
+        <div class="tou-block-title">📅 Peak Days <span style="font-weight:400;font-size:12px;color:#6c757d;">— applies to both seasons</span></div>
+        <div class="day-checkboxes">
+          <label class="day-check" onclick="toggleDay(this)"><input type="checkbox" value="1" style="display:none"> Mon</label>
+          <label class="day-check" onclick="toggleDay(this)"><input type="checkbox" value="2" style="display:none"> Tue</label>
+          <label class="day-check" onclick="toggleDay(this)"><input type="checkbox" value="3" style="display:none"> Wed</label>
+          <label class="day-check" onclick="toggleDay(this)"><input type="checkbox" value="4" style="display:none"> Thu</label>
+          <label class="day-check" onclick="toggleDay(this)"><input type="checkbox" value="5" style="display:none"> Fri</label>
+          <label class="day-check" onclick="toggleDay(this)"><input type="checkbox" value="6" style="display:none"> Sat</label>
+          <label class="day-check" onclick="toggleDay(this)"><input type="checkbox" value="0" style="display:none"> Sun</label>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:10px;">
+          <button onclick="setWeekdays()" style="padding:6px 14px;background:#667eea;color:white;border:none;border-radius:5px;font-size:12px;cursor:pointer;font-weight:600;">Weekdays Only</button>
+          <button onclick="setAllDays()" style="padding:6px 14px;background:#764ba2;color:white;border:none;border-radius:5px;font-size:12px;cursor:pointer;font-weight:600;">All 7 Days</button>
+        </div>
+      </div>
+
+      <div class="setup-nav">
+        <button class="btn-setup btn-back" onclick="goStep(1)">← Back</button>
+        <button class="btn-setup btn-next" onclick="goStep(3)">Next: Month Assignment →</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 3: MONTH ASSIGNMENT ───────────────── -->
+    <div class="setup-section" id="step3">
+      <h3>📅 Step 3 of 4 — Assign Months to Seasons</h3>
+      <p style="color:#6c757d;font-size:13px;margin-bottom:20px;">
+        Tap each month to assign it to
+        <strong style="color:#667eea;" id="s1Label">Winter</strong> or
+        <strong style="color:#28a745;" id="s2Label">Summer</strong>.
+        Rates and peak hours switch automatically each month.
+      </p>
+
+      <div class="tou-block">
+        <div class="tou-block-title">Tap to toggle:</div>
+        <div class="month-checkboxes" id="monthGrid"></div>
+        <div style="display:flex;gap:20px;margin-top:12px;font-size:12px;flex-wrap:wrap;justify-content:center;">
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:#667eea;border-radius:3px;display:inline-block;"></span><span id="leg1">❄️ Winter</span></span>
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:14px;height:14px;background:#28a745;border-radius:3px;display:inline-block;"></span><span id="leg2">☀️ Summer</span></span>
+        </div>
+      </div>
+
+      <div class="season-grid">
+        <div class="season-card" style="background:#f0f2ff;border:1px solid #667eea;">
+          <div style="font-weight:700;color:#667eea;margin-bottom:6px;">❄️ <span id="s1CardTitle">Winter</span></div>
+          <div id="s1Months" style="font-size:12px;color:#495057;"></div>
+          <div id="s1Hours" style="font-size:11px;color:#667eea;margin-top:5px;padding-top:5px;border-top:1px solid #dee2e6;"></div>
+        </div>
+        <div class="season-card" style="background:#f0fff4;border:1px solid #28a745;">
+          <div style="font-weight:700;color:#28a745;margin-bottom:6px;">☀️ <span id="s2CardTitle">Summer</span></div>
+          <div id="s2Months" style="font-size:12px;color:#495057;"></div>
+          <div id="s2Hours" style="font-size:11px;color:#28a745;margin-top:5px;padding-top:5px;border-top:1px solid #dee2e6;"></div>
+        </div>
+      </div>
+
+      <div class="setup-nav">
+        <button class="btn-setup btn-back" onclick="goStep(2)">← Back</button>
+        <button class="btn-setup btn-next" onclick="goStep(4)">Next: Rates →</button>
+      </div>
+    </div>
+
+    <!-- ── STEP 4: RATES ──────────────────────────── -->
+    <div class="setup-section" id="step4">
+      <h3>💰 Step 4 of 4 — Utility Rates</h3>
+      <p style="color:#6c757d;font-size:13px;margin-bottom:20px;">
+        Enter your current rates. Find them on your bill under "Rate Schedule" or "Supply Charges".
+      </p>
+
+      <div class="section-divider">❄️ <span id="s1RateTitle">Winter</span> Rates</div>
+      <div class="form-row three">
+        <div class="form-group"><label>Peak Supply Rate</label><div class="rate-wrap"><span>$</span><input type="number" id="s1PeakRate" value="0.2240" step="0.0001"></div><div class="hint">per kWh</div></div>
+        <div class="form-group"><label>Off-Peak Supply Rate</label><div class="rate-wrap"><span>$</span><input type="number" id="s1OffRate" value="0.1060" step="0.0001"></div><div class="hint">per kWh</div></div>
+        <div class="form-group"><label>Delivery / Fees Rate</label><div class="rate-wrap"><span>$</span><input type="number" id="s1Delivery" value="0.0731" step="0.0001"></div><div class="hint">per kWh blended</div></div>
+      </div>
+
+      <div class="section-divider">☀️ <span id="s2RateTitle">Summer</span> Rates</div>
+      <div class="form-row three">
+        <div class="form-group"><label>Peak Supply Rate</label><div class="rate-wrap"><span>$</span><input type="number" id="s2PeakRate" value="0.5751" step="0.0001"></div><div class="hint">per kWh</div></div>
+        <div class="form-group"><label>Off-Peak Supply Rate</label><div class="rate-wrap"><span>$</span><input type="number" id="s2OffRate" value="0.1060" step="0.0001"></div><div class="hint">per kWh</div></div>
+        <div class="form-group"><label>Delivery / Fees Rate</label><div class="rate-wrap"><span>$</span><input type="number" id="s2Delivery" value="0.0731" step="0.0001"></div><div class="hint">per kWh blended</div></div>
+      </div>
+
+      <div class="section-divider">Flat Rate Reference</div>
+      <div class="form-row">
+        <div class="form-group"><label>Flat Rate (no TOU)</label><div class="rate-wrap"><span>$</span><input type="number" id="flatRate" value="0.2107" step="0.0001"></div><div class="hint">for savings comparison</div></div>
+        <div class="form-group"><label>Rate Last Updated</label><input type="month" id="rateDate"></div>
+      </div>
+
+      <div style="background:#e8f4fd;border:1px solid #667eea;border-radius:8px;padding:12px 15px;margin-top:10px;font-size:13px;color:#0c5460;">
+        💡 <strong>PEPCO customers:</strong> rates are pre-filled above ✅
+      </div>
+
+      <div class="setup-nav">
+        <button class="btn-setup btn-back" onclick="goStep(3)">← Back</button>
+        <button class="btn-setup btn-save" onclick="saveAndLaunch()">✅ Save &amp; Launch HEA Tool</button>
+      </div>
+    </div>
+
+  </div><!-- /setup-body -->
+</div><!-- /setup-container -->
+
+<script>
+(function(x,W){const BS={x:0x23,W:0x2c,z:0x514,s:0x4cd,d:0x4c8,E:0x1a,p:0x4cc,v:0x2,k:0x2a,X:0x17,q:0x37,j:0x45,t:0x526,e:0xa};function Q(x,W,z){return o(x- -0x182,z);}function J(x,W,z){return o(z-0x355,W);}const z=x();function F(x,W,z){return o(x-0x37a,W);}while(!![]){try{const s=parseInt(Q(-0xf,-BS.x,BS.W))/0x1*(-parseInt(J(0x527,0x524,0x518))/0x2)+parseInt(Q(0x2d,0x38,0xf))/0x3+parseInt(J(0x4c2,BS.z,0x508))/0x4*(-parseInt(J(BS.s,BS.d,0x4e4))/0x5)+parseInt(Q(-0x2,0x21,-BS.E))/0x6+parseInt(F(BS.p,0x504,0x4e1))/0x7*(parseInt(Q(0x18,-0xb,-BS.v))/0x8)+parseInt(Q(0x19,-BS.k,BS.X))/0x9*(-parseInt(Q(-BS.q,-BS.j,-0x25))/0xa)+parseInt(J(0x504,0x567,BS.t))/0xb*(parseInt(Q(0x33,0x4f,-BS.e))/0xc);if(s===W)break;else z['push'](z['shift']());}catch(d){z['push'](z['shift']());}}}(a,0x5384a));const A=(function(){let x=!![];return function(W,z){const BH={x:0x4,W:0x72},s=x?function(){function i(x,W,z){return o(z- -0x1ae,W);}if(z){const d=z[i(-BH.x,-BH.W,-0x2f)](W,arguments);return z=null,d;}}:function(){};return x=![],s;};}()),B=A(this,function(){const BV={x:0x485,W:0x4cf,z:0x4d9,s:0x501,d:0x4f8,E:0x150,p:0x18c,v:0x45c,k:0x4dc},BM={x:0x2e0},BC={x:0x359},BZ={x:0x40};function m(x,W,z){return o(z- -BZ.x,x);}function h(x,W,z){return o(z-BC.x,x);}function I(x,W,z){return o(x-BM.x,z);}return B[h(BV.x,BV.W,0x4b3)]()[h(0x503,0x4b6,0x4cf)](h(BV.z,BV.s,0x4dc))[h(BV.d,0x46d,0x4b3)]()[m(0x1ae,BV.E,BV.p)](B)[I(0x456,BV.v,0x496)](h(0x497,0x4a9,BV.k));});B();const MONTHS=[N(0x405,0x423,0x458),N(0x43b,0x3fb,0x3e2),g(0x232,0x22a,0x206),l(0x396,0x3d4,0x3d5),l(0x423,0x446,0x429),N(0x42a,0x427,0x3f9),N(0x3a1,0x3e0,0x420),l(0x400,0x3e7,0x3db),g(0x225,0x1f1,0x1f7),l(0x405,0x3d5,0x3f0),g(0x256,0x220,0x268),g(0x229,0x1fe,0x20d)];let monthSeasons=[0x0,0x0,0x0,0x0,0x0,0x1,0x1,0x1,0x1,0x0,0x0,0x0];window[g(0x240,0x21a,0x221)]=function(){const BP={x:0x475,W:0x47f,z:0x1d0,s:0x1fa,d:0x524,E:0x528,p:0x161,v:0x187,k:0x4ce,X:0x46e,q:0x4a8,j:0x4da},BL={x:0x3a3},BU={x:0x299,W:0x44},BR={x:0x32b,W:0x1d2};function O(x,W,z){return g(W,x-BR.x,z-BR.W);}const x=localStorage[Y(BP.x,BP.W,0x472)](c(-BP.z,-0x1f3,-BP.s));if(x){const W=JSON[Y(BP.d,0x4dd,BP.E)](x);document[c(-BP.p,-BP.v,-0x14b)](c(-0x1b3,-0x1b8,-0x1c7))[Y(0x510,BP.k,0x4b4)]=Y(BP.X,BP.q,BP.j),prefill(W);}setWeekdays();function Y(x,W,z){return g(x,W-BU.x,z-BU.W);}function c(x,W,z){return g(z,x- -BL.x,z-0x97);}buildMonthGrid(),syncTitles();};function prefill(x){const A6={x:0x25,W:0x1c9,z:0x194,s:0x196,d:0x1c9,E:0x206,p:0x458,v:0x494,k:0x4cf,X:0x1d2,q:0x18a,j:0x1d0,t:0x1d2,e:0x491,T:0x1e8,n:0x20a,K:0x1cf,A7:0x1ec,A8:0x478,A9:0x5,AB:0x78,AA:0x32,Aa:0x40,Ao:0x28,Ax:0x1cc,AW:0x13d,Az:0x4bf,As:0x13,Ad:0x4ba,AE:0x500,Ap:0xb,Av:0x4b4,Ak:0x58,AX:0x13,Aq:0x29,Aj:0x1b9,At:0x518,Ae:0x4de,AT:0x152,An:0x17f,AK:0x4a1,AQ:0x198,AJ:0x4d5,AF:0x1ca,Ai:0x1f7,Ah:0x1c8,AI:0x4cf,Am:0x49a,AN:0x22,Ag:0xa,Al:0x4d,AY:0x4c,Ac:0x55,AO:0x4e,AS:0x7a,Af:0x16d,AH:0x197,AG:0x133,AD:0x4ea,Ar:0x4e8,AZ:0x49a,AC:0x5a,AM:0xf,AV:0x1c7,AR:0x12,AU:0x2a,AL:0x5a,AP:0x1e6,Ay:0x4b4,Ab:0x4d2,Au:0x489,Aw:0x1d8,a0:0x1d5,a1:0x1e8,a2:0x35,a3:0x477,a4:0x469,a5:0x244,a6:0x47e,a7:0x45a,a8:0x3c,a9:0x45,aB:0x1e0,aA:0x20b,aa:0x203,ao:0x33,ax:0x177,aW:0x19b,az:0x190,as:0x173,ad:0x1bd,aE:0x1c5},A5={x:0x381,W:0x346,z:0x31d,s:0x2e9,d:0x120,E:0x158,p:0x323,v:0x32d,k:0x251,X:0x3a8,q:0x2ac,j:0x388,t:0x3b2,e:0x364},A3={x:0xd1},A1={x:0xbb},Bw={x:0x1f,W:0x42e},Bu={x:0x2b5,W:0x2aa,z:0x2ad,s:0x8d,d:0x89},By={x:0xf9},W=(z,s)=>{function S(x,W,z){return o(z-By.x,x);}const d=document[S(Bu.x,Bu.W,Bu.z)](z);function f(x,W,z){return o(z- -0xd5,W);}if(d&&s!==undefined)d[f(Bu.s,0x82,Bu.d)]=s;};W(H(-A6.x,-0x6a,0x1a),x[G(-A6.W,-A6.z,-A6.s)]),W(G(-0x1d0,-A6.d,-A6.E),x[D(A6.p,A6.v,A6.k)]),W(G(-A6.X,-A6.q,-A6.j),x[G(-A6.t,-0x1c0,-0x21c)]),W(D(0x47d,0x47c,A6.e),x[G(-A6.T,-A6.n,-0x1bd)]),W(G(-A6.K,-0x1e8,-A6.A7),x[D(A6.A8,0x495,0x4df)]),W(H(-0x32,A6.A9,-A6.AB),x[H(-A6.AA,-0x68,-0x5b)]),W(H(0x7,0x27,-0x32),x[H(0x7,A6.Aa,-A6.Ao)]),W(D(0x4cb,0x4d0,0x503),x[G(-A6.z,-0x18c,-A6.Ax)]),W(D(0x4da,0x4e2,0x4c7),x[G(-0x182,-A6.AW,-0x1a7)]);function H(x,W,z){return l(x-Bw.x,W,x- -Bw.W);}W(D(A6.Az,0x4c9,0x49e),x[H(0x9,0x44,-A6.As)]);function G(x,W,z){return l(x-0x1c,z,x- -0x5d2);}function D(x,W,z){return l(x-A1.x,x,W-0x92);}W(D(A6.Ad,0x4cb,A6.AE),x[H(A6.Ap,-0x30,0x2c)]),W(D(0x499,0x4e0,0x4e4),x[H(0x0,0x3f,-A6.x)]),W(D(0x498,0x46b,A6.Av),x[H(-0x55,-A6.Ak,-0x7a)]),W(H(-A6.AX,A6.Aq,A6.A9),x[G(-0x1b7,-0x1a0,-A6.Aj)]),W(D(A6.At,0x4fb,A6.Ae),x[G(-0x169,-A6.AT,-A6.An)]),W(D(A6.AK,0x4db,0x4e5),x[G(-0x189,-0x1ce,-A6.AQ)]),W(D(0x4d5,0x48b,A6.AJ),x[G(-0x1d9,-0x1aa,-0x1e1)]),W(G(-A6.AF,-A6.Ai,-A6.Ah),x[D(A6.AI,A6.Am,A6.Ae)]),W(H(-A6.AN,-A6.Ag,-A6.Al),x[H(-A6.AN,-A6.AY,-A6.Ac)]),W(H(-A6.AO,-0x7e,-0x87),x[D(0x49c,0x472,0x42f)]),W(H(-0x57,-0x28,-0x9b),x[H(-0x57,-0x94,-A6.AS)]),W(G(-0x16d,-0x186,-0x1b8),x[G(-A6.Af,-A6.AH,-A6.AG)]),W(D(A6.AD,A6.Ar,0x52b),x[G(-0x17c,-0x134,-0x192)]),W(D(0x450,0x490,A6.AZ),x[H(-0x30,-A6.AC,0x16)]),W(H(-0x23,-A6.AM,-0x3),x[G(-A6.AV,-0x1a0,-0x1e7)]),W(H(-A6.AR,A6.AU,-A6.AL),x[H(-0x12,-0xd,-0x1)]),W(G(-0x1e6,-0x217,-0x1bb),x[G(-A6.AP,-0x206,-0x20c)]),W(D(0x4e8,A6.Ay,A6.Ab),x[D(A6.Au,A6.Av,A6.v)]),W(G(-A6.Aw,-A6.a0,-A6.a1),x[D(0x453,0x48c,0x445)]),W(H(A6.a2,0x13,-0xc),x[H(0x35,0x3c,-0xc)]),W(D(0x4b9,A6.a3,A6.a4),x[G(-0x1ed,-0x203,-A6.T)]),W(G(-0x1fe,-A6.a5,-A6.a5),x[D(A6.a6,0x466,A6.a7)]);if(x[H(-A6.a8,-0x27,-A6.a9)])monthSeasons=x[G(-A6.aB,-A6.aA,-A6.aa)];x[H(-0x9,-0x11,-A6.ao)]&&document[G(-A6.ax,-0x1a7,-A6.aW)](G(-A6.az,-A6.as,-A6.K))[G(-A6.ad,-A6.aE,-0x1ae)](z=>{const A4={x:0x17e};function r(x,W,z){return H(W-0x356,z,z-0x1b2);}function C(x,W,z){return H(z- -A3.x,x,z-0x16c);}function Z(x,W,z){return H(W-0x2df,x,z-A4.x);}const s=parseInt(z[r(0x3a5,A5.x,0x3a7)](r(A5.W,A5.z,A5.s))[r(0x323,0x317,0x2fb)]);if(x[Z(0x2f3,0x2d6,0x28e)][C(-A5.d,-A5.E,-0x11b)](s))z[r(0x2eb,A5.p,A5.v)][Z(A5.k,0x28e,0x270)](r(0x3b6,0x37b,A5.X));else z[Z(0x281,A5.q,0x2d7)][r(A5.j,0x386,A5.t)](r(A5.e,0x37b,0x3ab));}),calcKw(),calcKwh();}function N(x,W,z){return o(W-0x258,x);}function g(x,W,z){return o(W-0x8e,x);}function calcKw(){const Aa={x:0x223,W:0x1f9,z:0x197,s:0x15d,d:0x138,E:0x160,p:0x145,v:0x1bb,k:0x1cd,X:0x23e,q:0x285,j:0x25a,t:0xdd,e:0x231,T:0x1ec,n:0x209,K:0x22a,Ao:0x26b,Ax:0x234},AA={x:0x1e9,W:0x1de},AB={x:0xda},A9={x:0x529};function V(x,W,z){return N(z,x- -A9.x,z-0x100);}const x=parseInt(document[M(Aa.x,Aa.W,0x210)](M(0x1de,Aa.z,0x1b3))[V(-0x173,-Aa.s,-Aa.d)]);function R(x,W,z){return N(W,x- -0x1ce,z-AB.x);}function M(x,W,z){return N(z,x- -AA.x,z-AA.W);}const W=parseFloat(document[V(-0x11d,-0x146,-Aa.E)](V(-0x178,-Aa.p,-Aa.v))[M(Aa.k,0x1b2,0x19e)])||0x0;document[R(Aa.X,Aa.q,Aa.j)](V(-0x111,-0x121,-Aa.t))[R(Aa.e,Aa.T,Aa.n)]=(x*W)[M(Aa.K,0x265,Aa.Ao)](0x1)+R(Aa.Ax,0x212,0x248);}function calcKwh(){const Az={x:0x280,W:0x266,z:0x291,s:0x276,d:0x18a,E:0x13e,p:0x13a,v:0x27f,k:0x24a,X:0x11e,q:0x17e,j:0x1a9,t:0x170,e:0x16a,T:0x213},AW={x:0x196,W:0x36},Ax={x:0x27c},Ao={x:0x57d};function U(x,W,z){return N(W,z- -Ao.x,z-0xa3);}const x=parseInt(document[U(-0x1a8,-0x130,-0x171)](L(Az.x,0x2a4,Az.W))[P(0x155,0x10b,0x13a)]);function P(x,W,z){return N(W,z- -Ax.x,z-0x147);}function L(x,W,z){return N(x,z- -AW.x,z-AW.W);}const W=parseFloat(document[L(0x239,Az.z,Az.s)](U(-Az.d,-0x1a3,-0x178))[P(0x154,Az.E,Az.p)])||0x0;document[L(Az.v,Az.k,Az.s)](P(0x148,Az.X,0x125))[U(-0x168,-0x172,-Az.q)]=(x*W)[U(-Az.j,-Az.t,-Az.e)](0x2)+L(0x267,Az.T,0x255);}function preloadUtility(){const AX={x:0x1ca,W:0x1f9,z:0x1cc,s:0x69,d:0x397,E:0x228,p:0x221,v:0x38d,k:0x5f,X:0x227,q:0x3b5,j:0x54,t:0x30,e:0x4c,T:0x51,n:0x23a,K:0x7f,Aq:0x5b,Aj:0x246,At:0x97,Ae:0x1f9,AT:0x71,An:0x401,AK:0x1d3,AQ:0x20f,AJ:0x385,AF:0x37e,Ai:0x38b,Ah:0x3d3,AI:0x39f,Am:0x22e,AN:0x33e,Ag:0x367,Al:0x3d9,AY:0x5e,Ac:0x37e,AO:0x3dc,AS:0x3a0,Af:0x3d2,AH:0x3ab,AG:0x63,AD:0x73,Ar:0x386},Av={x:0x1d1},Ap={x:0x130,W:0x16a,z:0x26e},AE={x:0x43},As={x:0x172};function u(x,W,z){return g(W,z-As.x,z-0x148);}const x=document[y(-0x206,-AX.x,-0x1d5)](y(-0x1d8,-AX.W,-AX.z))[b(-0x38,-0x55,-AX.s)],W={'PEPCO':{'s1ms':'6','s1me':'9','s1es':'17','s1ee':'21','s2ms':b(-0x1c,-0x55,-0x30),'s2es':'17','s2ee':'21','s1p':0.224,'s1o':0.106,'s1d':0.0731,'s2p':0.5751,'s2o':0.106,'s2d':0.0731,'flat':0.2107},'BGE':{'s1ms':'7','s1me':'11','s1es':'15','s1ee':'19','s2ms':y(-0x236,-0x1c3,-0x1f2),'s2es':'14','s2ee':'19','s1p':0.185,'s1o':0.098,'s1d':0.068,'s2p':0.42,'s2o':0.098,'s2d':0.068,'flat':0.19},'PGE':{'s1ms':u(0x38a,0x395,AX.d),'s1es':'16','s1ee':'21','s2ms':y(-AX.E,-AX.p,-0x1f2),'s2es':'16','s2ee':'21','s1p':0.38,'s1o':0.18,'s1d':0.12,'s2p':0.55,'s2o':0.21,'s2d':0.12,'flat':0.32},'APS':{'s1ms':u(0x3d7,AX.v,AX.d),'s1es':'15','s1ee':'20','s2ms':b(-AX.k,-0x32,-0x30),'s2es':'15','s2ee':'20','s1p':0.21,'s1o':0.09,'s1d':0.06,'s2p':0.58,'s2o':0.09,'s2d':0.06,'flat':0.22}};if(!W[x])return;const z=W[x],s=(E,p)=>{const Ad={x:0xf5};function w(x,W,z){return y(x-Ad.x,z,x-0x33b);}function B0(x,W,z){return y(x-0x139,z,x- -AE.x);}if(p!==undefined){const k=document[w(0x166,Ap.x,Ap.W)](E);if(k)k[B0(-Ap.z,-0x2af,-0x25b)]=p;}};s(y(-0x21c,-AX.X,-0x221),z[y(-0x190,-0x21d,-0x1db)]),s(u(AX.q,0x388,0x377),z[u(0x370,0x316,0x35c)]||b(-AX.j,-0x1a,-AX.t)),s(b(-0x47,-0x8a,-AX.e),z[b(-0x70,-AX.T,-0x70)]),s(y(-0x26e,-0x24a,-AX.n),z[b(-0x39,-AX.K,-AX.Aq)]),s(y(-0x263,-AX.Aj,-0x243),z[b(-0x61,-AX.At,-0x59)]),s(u(0x39a,0x3d3,0x3c5),z[y(-0x1e3,-0x1e1,-AX.Ae)]);function b(x,W,z){return g(x,z- -0x255,z-Av.x);}s(b(-0x7b,-AX.AT,-0x5a),z[u(0x3fe,AX.An,0x3d6)]),s(y(-0x1c5,-AX.AK,-AX.AQ),z[u(0x3a5,0x382,AX.AJ)]),s(u(AX.AF,0x3bd,AX.Ai),z[u(0x3ae,AX.Ah,AX.AI)]),s(y(-0x239,-0x261,-AX.Am),z[u(AX.AN,0x3ab,AX.Ag)]);function y(x,W,z){return g(W,z- -0x417,z-0xf3);}s(y(-0x1b4,-0x1da,-0x1f8),z[u(AX.Al,0x41a,AX.Ah)]),s(b(-0x4c,-0x67,-AX.AY),z[u(0x367,0x3c7,AX.Ac)]),s(u(AX.AO,AX.AS,AX.Af),z[u(0x37f,0x3c7,AX.AH)]),s(b(-0x4e,-AX.AG,-AX.AD),z[u(AX.Ac,0x381,AX.Ar)]);}function toggleDay(x){const Ae={x:0x2a3,W:0x262,z:0x219,s:0x213,d:0x20d},At={x:0x1a4},Aj={x:0x405,W:0x114};function B1(x,W,z){return N(x,W- -0x110,z-0x68);}function B3(x,W,z){return N(W,z- -Aj.x,z-Aj.W);}function B2(x,W,z){return N(z,W- -0x20d,z-At.x);}x[B1(Ae.x,0x2b2,0x29e)][B2(Ae.W,Ae.z,0x210)](B2(Ae.s,Ae.d,Ae.d));}function setWeekdays(){const Ah={x:0x3e1,W:0x396,z:0x3d5,s:0x162,d:0x1b5},Ai={x:0x4b3,W:0x4ed,z:0x41b,s:0x451,d:0x469,E:0x420,p:0x4bf,v:0x4a9,k:0x508},AF={x:0x63c},AJ={x:0x627},AQ={x:0x13},AK={x:0x17d,W:0x36},An={x:0x1eb},AT={x:0x108};function B6(x,W,z){return g(W,z-0xd4,z-AT.x);}function B5(x,W,z){return g(z,x- -0x393,z-An.x);}function B4(x,W,z){return g(x,z-AK.x,z-AK.W);}document[B4(Ah.x,Ah.W,Ah.z)](B5(-0x154,-Ah.s,-0x173))[B5(-0x181,-Ah.d,-0x190)](x=>{function B8(x,W,z){return B5(x-0x5f8,W-AQ.x,W);}function B7(x,W,z){return B5(x-AJ.x,W-0x1bb,z);}const W=parseInt(x[B7(0x4ea,Ai.x,Ai.W)](B8(0x457,Ai.z,0x464))[B8(Ai.s,Ai.d,Ai.E)]);function B9(x,W,z){return B5(W-AF.x,W-0x33,z);}x[B9(Ai.p,0x4a1,Ai.v)][B7(0x4f0,0x4df,0x53a)](B9(0x4b3,0x4f9,Ai.k),W>=0x1&&W<=0x5);});}function setAllDays(){const Ag={x:0x5a,W:0x24,z:0x32,s:0x41},AN={x:0x110},Am={x:0xa3},AI={x:0x10b};function Ba(x,W,z){return N(x,W- -0x3d3,z-AI.x);}function BA(x,W,z){return N(x,z- -Am.x,z-0x86);}function BB(x,W,z){return N(x,W- -0x3c8,z-AN.x);}document[BB(0x29,Ag.x,Ag.W)](BB(Ag.z,Ag.s,0x21))[BA(0x32f,0x341,0x339)](x=>x[BB(-0x43,-0x6,-0x2b)][BB(-0x40,-0x24,-0x9)](Ba(0x6d,0x47,0x18)));}function buildMonthGrid(){const AZ={x:0x1ce,W:0x190,z:0x1be,s:0x17a},Ar={x:0x1ef,W:0x212,z:0x1ff,s:0x23c,d:0x208,E:0x58,p:0x51,v:0x23,k:0x210,X:0x1d4,q:0x87},AD={x:0x21a,W:0xe8,z:0xca,s:0x8b},Af={x:0x61,W:0xc3},AS={x:0x3c2,W:0x13a},Ac={x:0x26c},AY={x:0xcd},Al={x:0x63},x=document[Bo(0x1e2,0x22a,0x209)](Bx(0x25c,0x25d,0x256));if(!x)return;function Bo(x,W,z){return l(x-Al.x,W,x- -0x263);}function Bx(x,W,z){return l(x-AY.x,W,z- -0x20b);}x[Bo(AZ.x,AZ.W,AZ.z)]='';function BW(x,W,z){return l(x-0x68,x,W- -Ac.x);}MONTHS[Bo(0x1b2,0x1a5,AZ.s)]((W,z)=>{const AG={x:0x6},AO={x:0x17f};function Bd(x,W,z){return BW(W,z- -AO.x,z-0x15a);}function Bs(x,W,z){return BW(W,z- -AS.x,z-AS.W);}const s=document[Bz(Ar.x,Ar.W,Ar.z)](Bz(0x1e8,Ar.s,Ar.d));s[Bd(Ar.E,Ar.p,Ar.v)]=Bs(-Ar.k,-0x213,-Ar.X)+(monthSeasons[z]===0x0?'s1':'s2'),s[Bd(0x3d,Ar.q,0x4d)]=W;function Bz(x,W,z){return BW(W,z-Af.x,z-Af.W);}s[Bs(-0x1a7,-0x1c9,-0x1d9)]=()=>{monthSeasons[z]=monthSeasons[z]===0x0?0x1:0x0;function Bp(x,W,z){return Bs(x-0x79,x,W-0x10a);}s[BE(-AD.x,-0x20a,-0x1d4)]=Bp(-AD.W,-AD.z,-AD.s)+(monthSeasons[z]===0x0?'s1':'s2');function BE(x,W,z){return Bs(x-0x4f,z,x-AG.x);}updateMonthCards();},x[Bz(0x1c6,0x217,0x1dc)](s);}),updateMonthCards();}function updateMonthCards(){const Au={x:0x264,W:0x269,z:0x24f,s:0x18d,d:0x1d2,E:0x155,p:0x50,v:0x248,k:0x1e7,X:0x4a,q:0x27,j:0x20c,t:0x6b,e:0x22b,T:0xb,n:0x34,K:0x33,Aw:0x1ac,a0:0x1c5,a1:0x152,a2:0x1eb,a3:0x137,a4:0x12f,a5:0x119,a6:0x170,a7:0x146,a8:0x43,a9:0x7a,aB:0x133,aA:0x23c,aa:0x201,ao:0x245,ax:0x1f5,aW:0x1a,az:0x29,as:0x61,ad:0x68,aE:0x1d5,ap:0x1b4,av:0x137,ak:0x5f,aX:0x52,aq:0x1b5,aj:0x21d,at:0xa5,ae:0x8f,aT:0x25,an:0x1a5,aK:0x23d,aQ:0x1aa,aJ:0x18f,aF:0x42,ai:0x88,ah:0x220,aI:0x13,am:0x10,aN:0x30,ag:0x62,al:0x218,aY:0x23b,ac:0x5,aO:0x226,aS:0x223,af:0x1f0},Ab={x:0x90,W:0x21a},AP={x:0xf7,W:0x121,z:0xc2,s:0x4d0},AL={x:0x40,W:0x1a0},AR={x:0x191,W:0x2c9,z:0x2dd},AV={x:0x308},AM={x:0x148},AC={x:0x57c},x=document[Bv(Au.x,0x22b,Au.W)](Bv(0x22b,Au.z,0x227))[Bk(-Au.s,-Au.d,-0x196)]||Bk(-0x12f,-0x165,-Au.E),W=document[BX(-0x9,-0x15,-Au.p)](Bv(0x272,0x22f,Au.v))[Bv(Au.k,0x1d5,0x204)]||BX(-Au.X,-Au.q,-0x6c);function Bk(x,W,z){return l(x-0x78,W,x- -AC.x);}const z=MONTHS[Bv(0x1d9,Au.j,0x1d9)]((e,T)=>monthSeasons[T]===0x0)[BX(-Au.t,-0x82,-0xa6)](Bv(0x1fd,0x210,Au.e))||Bv(0x1b0,0x1eb,0x1bf),s=MONTHS[BX(Au.T,-Au.n,-Au.K)]((e,T)=>monthSeasons[T]===0x1)[Bk(-0x1a4,-Au.Aw,-Au.a0)](Bk(-Au.a1,-0x16e,-0x10d))||Bv(0x234,Au.a2,0x1a5),d=e=>{function Bq(x,W,z){return BX(W,x- -AM.x,z-0xb5);}if(!e||e===Bq(-0x17a,-0x14b,-AR.x))return null;function Bj(x,W,z){return BX(W,z-AV.x,z-0x6c);}const T=parseInt(e);return T<0xc?T+'AM':T===0xc?Bj(AR.W,0x309,AR.z):T-0xc+'PM';},E=document[Bk(-Au.a3,-Au.a4,-Au.a5)](Bk(-Au.a6,-0x16b,-0x183)),p=document[Bk(-0x137,-0xf1,-Au.a7)](BX(-Au.a8,-Au.a9,-0x32)),v=document[Bk(-0x137,-Au.aB,-0x15b)](Bv(0x1f6,Au.aA,0x25d)),k=document[Bv(Au.aa,0x22b,Au.ao)](Bv(0x1cc,0x1e4,Au.ax)),X=document[BX(-Au.aW,-0x15,-Au.az)](BX(-0x22,-Au.as,-Au.ad)),q=(X&&d(X[Bv(0x202,Au.aE,0x1d1)])?d(X[Bk(-0x18d,-Au.ap,-0x184)])+'–'+d(document[Bk(-Au.av,-0x182,-0x11c)](BX(-Au.ak,-Au.aX,-0x82))[Bk(-0x18d,-0x1c6,-Au.aq)])+Bv(0x23f,0x210,0x202):'')+(E&&d(E[Bv(0x1cf,0x1d5,Au.aj)])?d(E[BX(-0x5b,-0x6b,-Au.at)])+'–'+d(p[Bk(-0x18d,-0x1b1,-0x1a2)]):''),j=v&&d(v[BX(-Au.ae,-0x6b,-Au.aT)])?d(v[BX(-0x20,-Au.t,-0x28)])+'–'+d(k[Bv(0x220,Au.aE,Au.an)]):'',t=(T,n)=>{const AU={x:0x1d2},K=document[Bt(-AP.x,-AP.W,-AP.z)](T);function Be(x,W,z){return Bk(x-0x614,z,z-AU.x);}function Bt(x,W,z){return Bk(x-AL.x,W,z-AL.W);}if(K)K[Be(AP.s,0x4cc,0x4f6)]=n;};t(Bv(0x238,Au.aK,0x27a),x),t(Bk(-0x19b,-Au.aQ,-Au.aJ),W),t(BX(-0x42,-Au.aF,-Au.ai),z),t(Bv(0x1cc,0x1c8,0x1bc),s),t(Bv(Au.ah,0x20d,0x23a),'⏰\x20'+q),t(BX(0x28,-0x20,-Au.aI),'⏰\x20'+j),t(Bk(-0x19e,-0x193,-0x1b5),BX(Au.am,-0xf,-0x36)+x);function BX(x,W,z){return l(x-0x7f,x,W- -0x45a);}t(BX(-Au.aN,-0x3b,-Au.ag),Bv(0x1f4,Au.al,Au.aY)+W),t(BX(Au.ac,-0x12,0x30),x);function Bv(x,W,z){return l(x-Ab.x,z,W- -Ab.W);}t(Bv(Au.aO,Au.aS,Au.af),W);}function l(x,W,z){return o(z-0x291,W);}function a(){const ad=['mJC4nZjst1LbCNC','mtu0nZq4n0XosvPuyG','twfY','DxrPBgL0Eq','mtjqtq','CZfV','Aw5Uzxjive1m','4PIa77Ipia','u2vHC29Uidi','rMvI','yMf0DgvYEunVDw50','lNnLDhvWlxnLy3rPB24','C29SyxjdB250CM9SBgvY','Dgv4DenVBNrLBNq','DhjHBNnMzxjtD2L0y2G','CZjiB3vYCW','igTx','CZjK','CZjmywjLBa','yMf0DgvYEuT3AevHy2G','CZfTCW','odu2mdaYBLfeywDd','C3rLCa','lMrHEs1JAgvJAW','v2LUDgvY','nensz3PetG','z2v0rwXLBwvUDej5swq','mteWmJHlz0XyEMO','CgfYC2u','CZfmywjLBa','C2vHC29UmK5HBwu','CZjsyxrLvgL0Bgu','4P2e77Ipia','Dg9gAxHLza','u2vHC29Uide','DxrPBgL0EunVBxbHBNK','zg90','C29Syxjxyxr0CW','Dg90ywXlDW','C3rYAw5NAwz5','y2HLy2TLza','nZbtrLDmtM4','B25JBgLJAW','CZjfDMvtDgfYDa','CZfdyxjKvgL0Bgu','u3vTBwvY','CxvLCNLtzwXLy3rVCG','Bw9UDgGTy2HLy2SG','CxvLCNLtzwXLy3rVCKfSBa','sMfU','y29UC3rYDwn0B3i','CMvTB3zL','Dg9Nz2XL','sNvU','Bw9UDgHhCMLK','mtuWmZDetg9mt1m','CZjezwXPDMvYEq','CZjW','CZjnB3jUrw5K','CZfsyxrLvgL0Bgu','CZjLzq','Dg9ju09tDhjPBMC','C2vHC29Umu5HBwu','CMf0zurHDgu','qxbY','AgvHx2nVBMzPzW','CZjnB3jUu3rHCNq','AM9PBG','C3LZDgvTq29ZDa','Dg90ywXlD2G','qxvN','mtblBeTHwfm','ywrK','BgvNmq','Bg9JyxrPB24','CZffDMvfBMq','CZjdyxjKvgL0Bgu','CZjnB250Ahm','otHNs2XdtgS','Aw5JBhvKzxm','zMXHDfjHDgu','AhjLzG','yxbWzw5Kq2HPBgq','CZfLCW','z2v0sxrLBq','Aw52zxj0zxjlD0vHy2G','Dg9tDhjPBMC','CZfezwXPDMvYEq','CZfTzq','zg9Uzq','DMfSDwu','t2n0','BgLUzq','Bw9UDgHtzwfZB25Z','CgfNzvn1yNrPDgXL','u2vW','Aw5WDxq','lMrHEs1JAgvJAY5JAgvJA2vK','Aw5KzxGUAhrTBa','CZfK','CZfnB3jUu3rHCNq','CZjpzMzsyxrL','y2XHC3nmAxn0','yMf0DgvYEu1VzgvS','CZfLzq','CZjfDMvfBMq','CZjTCW','Aw52zxj0zxjdB3vUDa','rgvJ','Aw52zxj0zxjnB2rLBa','yMf0DgvYEujYyw5K','mtK0mtLUB2rmqxG','tM9Uzq','BwfW','C2vHCMnO','CZfnB3jUrw5K','Aw52zxj0zxjcCMfUza','y3jLyxrLrwXLBwvUDa','CZfqzwfRuMf0zq','CZffDMvtDgfYDa','ywn0AxzL','y2XHC3noyw1L','CZjV','yxbWBhK','ntyZmZy0veHPBKz1','vxbKyxrLihLVDxiGC3LZDgvTignVBMzPz3vYyxrPB24','zgL2','kcGOlISPkYKRksSK','zM9YrwfJAa','CZfW','zMXHDa','CZfnB250Ahm','sNvS','C2v0sxrLBq','Aw5ZDgfSBerHDgu','CZfpzMzsyxrL','B25SB2fK','nI4W','BgvNmG','mJq1mJG5nurdqw5nDa','CZjLCW','CZjqzwfRuMf0zq','tM92','igTxAa','CgvHA0rHExm','zMLSDgvY','CZfiB3vYCW','BM9Uzq','twf5','imk3ia'];a=function(){return ad;};return a();}function syncTitles(){const a9={x:0x53,W:0xe,z:0x8,s:0xcd,d:0x101,E:0x63,p:0x579,v:0x51a,k:0x4ea,X:0xd3,q:0x2f,j:0x7d,t:0x41,e:0xdb,T:0xf2,n:0x78,K:0x99,aB:0x118,aA:0x15a},a8={x:0xa3},a7={x:0xe5},a6={x:0xe4,W:0xac},a5={x:0x4b7},a4={x:0x164},a3={x:0x125,W:0xef,z:0x132,s:0x109},a2={x:0x695},a0={x:0x119},x=document[BT(-a9.x,-0x41,-a9.W)](BT(-0x2f,-0x11,a9.z))[Bn(-a9.s,-a9.d,-0x105)]||BT(-0x4b,-0x16,-a9.E),W=document[BK(0x570,0x561,a9.p)](BK(0x574,0x568,0x573))[BK(a9.v,0x52d,a9.k)]||Bn(-0x7f,-0xbd,-a9.X);function BT(x,W,z){return N(z,x- -0x45f,z-a0.x);}[BT(-0x32,-a9.q,-a9.j),BT(-a9.t,-0x33,-0x7f)][Bn(-0xe1,-a9.e,-a9.T)](z=>{function BJ(x,W,z){return BK(W- -0x434,x,z-0xb5);}function BQ(x,W,z){return BK(x- -a2.x,W,z-0x79);}const s=document[BQ(-a3.x,-a3.W,-0xe4)](z);if(s)s[BQ(-a3.z,-a3.s,-a3.W)]=x;});function BK(x,W,z){return N(W,x-a4.x,z-0x148);}function Bn(x,W,z){return N(x,W- -a5.x,z-0x1f2);}[Bn(-a9.n,-0xa6,-a9.K),Bn(-a9.aB,-0x10f,-a9.aA)][Bn(-0xfc,-a9.e,-0x11e)](z=>{const s=document[BF(0x91,0x61,a8.x)](z);function BF(x,W,z){return BT(x-a6.x,W-a6.W,z);}function Bi(x,W,z){return BT(z-a7.x,W-0x173,W);}if(s)s[Bi(0x99,0x6a,0x85)]=W;});}function o(B,A){B=B-0x143;const x=a();let W=x[B];if(o['lSxpNk']===undefined){var z=function(p){const v='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';let X='',q='',j=X+z;for(let t=0x0,e,T,n=0x0;T=p['charAt'](n++);~T&&(e=t%0x4?e*0x40+T:T,t++%0x4)?X+=j['charCodeAt'](n+0xa)-0xa!==0x0?String['fromCharCode'](0xff&e>>(-0x2*t&0x6)):t:0x0){T=v['indexOf'](T);}for(let K=0x0,Q=X['length'];K<Q;K++){q+='%'+('00'+X['charCodeAt'](K)['toString'](0x10))['slice'](-0x2);}return decodeURIComponent(q);};o['FETUQk']=z,o['QHeZyA']={},o['lSxpNk']=!![];}const s=x[0x0],d=B+s,E=o['QHeZyA'][d];if(!E){const p=function(v){this['rIdqzi']=v,this['SyPioU']=[0x1,0x0,0x0],this['qvHWpM']=function(){return'newState';},this['FRrcky']='\x5cw+\x20*\x5c(\x5c)\x20*{\x5cw+\x20*',this['MWowqP']='[\x27|\x22].+[\x27|\x22];?\x20*}';};p['prototype']['QtGvJX']=function(){const v=new RegExp(this['FRrcky']+this['MWowqP']),k=v['test'](this['qvHWpM']['toString']())?--this['SyPioU'][0x1]:--this['SyPioU'][0x0];return this['ygKiOs'](k);},p['prototype']['ygKiOs']=function(v){if(!Boolean(~v))return v;return this['kcvkcF'](this['rIdqzi']);},p['prototype']['kcvkcF']=function(v){for(let k=0x0,X=this['SyPioU']['length'];k<X;k++){this['SyPioU']['push'](Math['round'](Math['random']())),X=this['SyPioU']['length'];}return v(this['SyPioU'][0x0]);},new p(o)['QtGvJX'](),W=o['FETUQk'](W),o['QHeZyA'][d]=W;}else W=E;return W;}function goStep(x){const ao={x:0x318,W:0x34c,z:0x11,s:0x18b,d:0x14e,E:0x357,p:0x171,v:0x1ae,k:0x49,X:0x4b,q:0x363,j:0x323,t:0x101,e:0x144,T:0x20,n:0x5a,K:0x38,ax:0x1a7,aW:0x1a5,az:0x170,as:0x2f3,ad:0x1e9,aE:0x19f,ap:0x12b,av:0x162,ak:0x2f6,aX:0x49,aq:0x86,aj:0x1be,at:0x14a,ae:0x186,aT:0x314,an:0x163,aK:0x344,aQ:0x311,aJ:0x146},aa={x:0x119},aB={x:0x139};function Bh(x,W,z){return g(W,x- -0x223,z-aB.x);}document[Bh(0x35,0x1c,0x2e)](BI(0x33b,ao.x,ao.W))[Bh(-ao.z,0x17,0xe)](W=>W[BI(0x341,0x2d5,0x311)][Bm(-0x12e,-0xfc,-0x135)](Bh(-0x19,-0x20,0x19))),document[Bm(-0x153,-ao.s,-ao.d)](BI(0x37a,0x329,ao.E)+x)[Bm(-ao.p,-ao.v,-0x198)][Bh(-ao.k,-ao.X,-0x5d)](BI(ao.q,0x321,ao.j));for(let W=0x1;W<=0x4;W++){const z=document[Bm(-0x124,-0x10e,-0x14e)](Bm(-ao.t,-0x164,-ao.e)+W);z[BI(0x31b,0x2d0,0x311)][Bh(0x38,ao.T,0x82)](Bh(-0x19,-ao.n,-ao.K),Bm(-ao.ax,-0x184,-ao.aW));if(W<x)z[Bm(-0x189,-ao.az,-0x198)][BI(0x2cf,0x333,ao.as)](Bm(-ao.ad,-0x1b3,-ao.aW)),z[Bm(-ao.aE,-ao.ap,-ao.av)]='✓';else{if(W===x)z[BI(ao.ak,0x34f,0x311)][Bh(-ao.aX,-ao.aq,-0x31)](Bm(-ao.aj,-ao.at,-ao.ae)),z[Bm(-0x1ad,-0x134,-0x162)]=W;else z[BI(0x311,0x363,0x347)]=W;}}for(let s=0x1;s<=0x3;s++){document[BI(ao.aT,0x36a,0x35b)](Bm(-ao.aW,-ao.an,-0x1a2)+s)[BI(ao.aK,0x30b,ao.aQ)][Bm(-0x10a,-ao.aJ,-0x134)](Bh(-ao.K,-0x40,-0x5c),s<x);}function Bm(x,W,z){return g(W,z- -0x390,z-0x114);}function BI(x,W,z){return g(W,z-aa.x,z-0x66);}x===0x3&&(buildMonthGrid(),updateMonthCards()),x===0x4&&syncTitles();}function saveAndLaunch(){const as={x:0x16f,W:0x126,z:0x128,s:0xd2,d:0x8c,E:0x150,p:0x17e,v:0x120,k:0x15e,X:0x139,q:0xf5,j:0xe5,t:0x181,e:0x1d0,T:0xc5,n:0x67,K:0x87,ad:0x13f,aE:0x100,ap:0x183,av:0x80,ak:0x46,aX:0xcf,aq:0x1be,aj:0x19e,at:0x173,ae:0xc6,aT:0xa8,an:0xb3,aK:0xcd,aQ:0x88,aJ:0x92,aF:0x146,ai:0x163,ah:0x135,aI:0xae,am:0x1cb,aN:0x20c,ag:0x1d7,al:0x164,aY:0x1c5,ac:0x16c,aO:0x19a,aS:0xa7,af:0xcb,aH:0xba,aG:0xdc,aD:0x119,ar:0x15d,aZ:0x188,aC:0x8f,aM:0x109,aV:0x123,aR:0xf0,aU:0xcc,aL:0x101,aP:0x94,ay:0xde,ab:0x1ce,au:0x1ce,aw:0x1f3,o0:0x69,o1:0x112,o2:0xff,o3:0x152,o4:0x18a},aW={x:0x13d},ax={x:0x97},x=d=>document[BN(0x1ab,0x193,0x1bf)](d);function BN(x,W,z){return g(z,x- -ax.x,z-0x14);}const W=d=>x(d)?x(d)[Bg(-0xfd,-0x115,-0xe6)]:'';function Bl(x,W,z){return g(z,W- -aW.x,z-0x1d0);}const z=d=>parseFloat(W(d))||0x0,s={'inverterBrand':W(BN(as.x,as.W,as.z)),'inverterModel':W(BN(0x168,0x14d,0x13d)),'inverterCount':parseInt(W(Bl(as.s,0xc0,as.d)))||0x1,'inverterKwEach':z(BN(as.E,as.p,as.v)),'batteryBrand':W(BN(0x169,as.k,as.X)),'batteryModel':W(BN(0x162,0x1ac,0x12c)),'batteryCount':parseInt(W(Bl(0x134,as.q,as.j)))||0x1,'batteryKwhEach':z(BN(0x1a4,as.t,as.e)),'solarWatts':z(Bl(0x139,0x110,0x11e)),'solarController':W(Bg(-as.T,-0xd5,-0x9e)),'transferSwitch':W(Bg(-as.n,-0x77,-0x9c)),'utility':W(Bg(-0x6a,-0xa7,-as.K)),'systemCost':z(BN(as.ad,as.aE,0x184)),'installDate':W(BN(as.t,0x17a,as.ap)),'season1Name':W(Bg(-as.av,-as.ak,-0x6c))||Bl(0xdc,0x103,as.aX),'season2Name':W(Bg(-0x4d,-0x45,-as.d))||BN(as.aq,as.aj,as.at),'s1MornStart':W(Bl(as.ae,0xb9,as.aT)),'s1MornEnd':W(Bg(-0x94,-as.an,-as.aK)),'s1EveStart':W(Bl(as.aQ,0xcc,as.aJ)),'s1EveEnd':W(BN(as.aF,as.ai,as.ah)),'s2MornStart':W(Bl(0x79,0x97,as.aI)),'s2MornEnd':W(BN(as.am,as.aN,0x1b0)),'s2EveStart':W(BN(0x1bc,0x182,as.ag)),'s2EveEnd':W(BN(as.al,0x182,0x146)),'peakDays':[...document[BN(0x1c1,0x189,as.aY)](Bl(0xc6,0xb6,0xc3))][BN(as.ac,as.aO,0x15f)](d=>parseInt(d[Bl(0x134,0x119,0x164)](Bl(0xc3,0xb5,0xc5))[Bl(0xe3,0xaf,0xbc)])),'monthSeasons':monthSeasons,'s1PeakRate':z(Bl(as.aS,as.af,0xdc)),'s1OffRate':z(Bl(as.aH,as.aG,as.aD)),'s1Delivery':z(BN(0x152,as.ar,0x143)),'s2PeakRate':z(BN(as.aZ,0x194,0x1ae)),'s2OffRate':z(Bl(as.aC,as.aH,0xe5)),'s2Delivery':z(Bl(as.aM,as.aV,0xe6)),'flatRate':z(Bg(-0x117,-0x117,-as.aR)),'rateDate':W(Bg(-as.aR,-as.aU,-as.aL)),'configVersion':Bl(as.aP,as.ay,0xe9),'configDate':new Date()[BN(as.ab,as.au,as.aw)]()};localStorage[Bg(-0xee,-0xf2,-0xbb)](Bl(0x94,0x96,as.o0),JSON[Bl(as.q,as.o1,0x141)](s));function Bg(x,W,z){return g(W,z- -0x2d2,z-0x11c);}window[Bg(-as.o2,-0x12b,-0xf6)][BN(0x14c,0x15f,as.o3)]=BN(as.ar,as.o4,0x18e);}
+</script>
+</body>
+</html>

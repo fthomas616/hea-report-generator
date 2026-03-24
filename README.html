@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HEA Report Generator - Read Me</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      min-height: 100vh;
+      padding: 20px 10px;
+      color: #333;
+      line-height: 1.7;
+    }
+    .container {
+      max-width: 720px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .header p { font-size: 14px; opacity: 0.9; }
+    .body { padding: 24px; }
+    h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #667eea;
+      border-bottom: 2px solid #e9ecef;
+      padding-bottom: 8px;
+      margin: 28px 0 14px 0;
+    }
+    h2:first-child { margin-top: 0; }
+    p { font-size: 14px; color: #444; margin-bottom: 10px; }
+    ul { padding-left: 20px; margin-bottom: 10px; }
+    li { font-size: 14px; color: #444; margin-bottom: 6px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 4px;
+    }
+    .badge-green { background: #d4edda; color: #155724; }
+    .badge-yellow { background: #fff3cd; color: #856404; }
+    .badge-blue { background: #d1ecf1; color: #0c5460; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 14px; font-size: 13px; }
+    th { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 10px 12px; text-align: left; }
+    td { padding: 9px 12px; border-bottom: 1px solid #e9ecef; color: #444; }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f8f9ff; }
+    .privacy-box {
+      background: #f0f8ff;
+      border-left: 4px solid #667eea;
+      border-radius: 4px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .privacy-box li { margin-bottom: 4px; }
+    .cta-box {
+      background: linear-gradient(135deg, #667eea15, #764ba215);
+      border: 1px solid #667eea40;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .cta-box p { color: #555; margin-bottom: 14px; }
+    .btn {
+      display: inline-block;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin: 4px;
+    }
+    .btn-purple { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+    .btn-green  { background: linear-gradient(135deg, #28a745, #20c997); color: white; }
+    .btn-coffee { background: #FFDD00; color: #000; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102,126,234,0.35); }
+    .footer {
+      text-align: center;
+      padding: 16px 24px;
+      background: #f8f9fa;
+      border-top: 1px solid #e9ecef;
+      font-size: 12px;
+      color: #adb5bd;
+    }
+    .email-link { color: #667eea; text-decoration: none; font-weight: 600; }
+    .email-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h1>🏡 Home Energy Analysis (HEA) Report Generator</h1>
+      <p>Built by an EG4 user, for the EG4 community</p>
+    </div>
+
+    <div class="body">
+
+      <h2>📊 What This Tool Does</h2>
+      <ul>
+        <li>Scans your utility bill and extracts data automatically (PEPCO currently supported)</li>
+        <li>Imports your EG4 inverter logs (handles multi-tab XLS files)</li>
+        <li>Calculates TOU vs Flat rate savings — see exactly how much you're saving</li>
+        <li>Tracks battery efficiency — understand your system's real-world performance</li>
+        <li>Monitors peak coverage — how much of your peak usage is covered by solar/battery</li>
+        <li>Month-over-month tracking — watch your cumulative savings grow</li>
+        <li>Generates professional PDF reports — perfect for sharing or keeping records</li>
+      </ul>
+
+      <h2>🔐 Privacy First</h2>
+      <div class="privacy-box">
+        <ul style="list-style:none; padding:0;">
+          <li>✅ All calculations happen locally on your device</li>
+          <li>✅ Your utility bills never leave your phone</li>
+          <li>✅ No data sent to servers</li>
+          <li>✅ No account required, no tracking</li>
+        </ul>
+      </div>
+      <p>This is a Progressive Web App (PWA) — it works in your browser and can be installed to your home screen like a native app.</p>
+
+      <h2>⚡ Current Support Status</h2>
+      <table>
+        <tr><th>Status</th><th>Utility</th><th>Notes</th></tr>
+        <tr>
+          <td><span class="badge badge-green">✅ Full</span></td>
+          <td>PEPCO</td>
+          <td>Auto-extract (MD, DC, DE, NJ)</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-yellow">⚠️ Partial</span></td>
+          <td>BGE, Dominion, PG&amp;E, SCE, Oncor, FPL, APS, Duke, ConEd</td>
+          <td>Manual entry available</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-blue">🔄 Soon</span></td>
+          <td>Additional utilities</td>
+          <td>With community help</td>
+        </tr>
+      </table>
+
+      <p><strong>Inverters:</strong> EG4 (6000XP, 18kPV, etc.) — fully tested. Any EG4-compatible battery brand supported.</p>
+      <p><strong>Future:</strong> Victron, Sol-Ark, Growatt, Deye — interested in expanding with community testing.</p>
+
+      <h2>🤝 How You Can Help</h2>
+      <p>If you're on a utility other than PEPCO and want bill auto-extract:</p>
+      <ul>
+        <li>Email a sample bill PDF (redact personal info) to <a href="mailto:support@sarhraan.com" class="email-link">support@sarhraan.com</a></li>
+        <li>Include your utility company name</li>
+        <li>I'll work on adding regex support for your bill format</li>
+      </ul>
+      <p style="margin-top:10px;">Have a non-EG4 inverter? Send a sample log file and let's test compatibility!</p>
+      <p style="margin-top:6px;">Bugs, feature ideas, or success stories? Email <a href="mailto:support@sarhraan.com" class="email-link">support@sarhraan.com</a></p>
+
+      <h2>💝 Support This Project</h2>
+      <div class="cta-box">
+        <p>This tool is completely free. I built it over 5 months as an EG4 user who wanted better visibility into my system's performance and savings. If it helps you, consider buying me a coffee!</p>
+        <a href="https://ko-fi.com/heareport" target="_blank" class="btn btn-coffee">☕ Support on Ko-fi</a>
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSci5B5u_fKKjxXMGiZpo35COS-Uti9wtVcnCnJi0bjHPRn8bA/viewform?usp=publish-editor" target="_blank" class="btn btn-green">🤝 Help Expand Support</a>
+      </div>
+
+    </div>
+
+    <div class="footer">
+      HEA Report Generator v5.0 &nbsp;|&nbsp; support@sarhraan.com &nbsp;|&nbsp;
+      <a href="https://hea-reporting-tool.vercel.app" class="email-link">hea-reporting-tool.vercel.app</a>
+    </div>
+
+  </div>
+</body>
+</html>

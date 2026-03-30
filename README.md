@@ -56,7 +56,7 @@ This is a Progressive Web App (PWA) - it works in your browser and can be instal
 
 If you're on a utility other than PEPCO and want bill auto-extract for your company:
 
-1. Email a sample bill PDF (redact personal info) to: **support@sarhraan.com**
+1. Email a sample bill PDF (redact personal info) to: **fthomas@two19investments.com**
 2. Include your utility company name
 3. I'll work on adding regex support for your bill format
 
@@ -64,13 +64,13 @@ The more utilities we support, the more useful this becomes for the entire commu
 
 ### Share Your Feedback
 
-- Found a bug? Email: support@sarhraan.com
-- Feature suggestion? Email: support@sarhraan.com
+- Found a bug? Email: fthomas@two19investments.com
+- Feature suggestion? Email: fthomas@two19investments.com
 - Success story? Share it in the EG4 Facebook community!
 
 ### Test Other Inverter Logs
 
-If you have a non-EG4 inverter and want to help test compatibility, send a sample log file to support@sarhraan.com and let's see if we can make it work!
+If you have a non-EG4 inverter and want to help test compatibility, send a sample log file to fthomas@two19investments.com and let's see if we can make it work!
 
 ---
 
@@ -95,5 +95,5 @@ Every coffee helps! 🙏
 ## 🔗 Links
 
 - **Live App:** https://hea-reporting-tool.vercel.app
-- **Support:** support@sarhraan.com
+- **Support:** fthomas@two19investments.com
 - **Donations:** https://ko-fi.com/heareport

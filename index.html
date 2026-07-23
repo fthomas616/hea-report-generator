@@ -25,14 +25,16 @@
   --win-bg:rgba(61,217,196,.07);
 }
 html.light{
-  --ink:#FFFFFF; --panel:#FFFFFF; --panel2:#F5F5F5; --line:#E0E0E0; --line2:#BDBDBD;
-  --peak:#E84B1A; --off:#0097A7; --batt:#6200EA; --loss:#9E9E9E; --bad:#D32F2F;
-  --text:#111111; --muted:#555555; --dim:#999999;
+  /* Surface hierarchy: page=zinc-100, card=white, recessed=zinc-100
+     Dark text on white cards, exactly like Linear/Stripe/Vercel light mode */
+  --ink:#F4F4F5; --panel:#FFFFFF; --panel2:#F9F9FA; --line:#E4E4E7; --line2:#A1A1AA;
+  --peak:#B45309; --off:#0E7490; --batt:#7C3AED; --loss:#71717A; --bad:#DC2626;
+  --text:#09090B; --muted:#52525B; --dim:#A1A1AA;
   --nav-bg:rgba(255,255,255,.96);
-  --dz-hover:rgba(0,151,167,.05); --auto-border:rgba(0,151,167,.40);
-  --caveat-bg:rgba(232,75,26,.05); --caveat-bd:rgba(232,75,26,.20); --caveat-tx:#5A1500;
-  --ok-bg:rgba(0,151,167,.06); --ok-bd:rgba(0,151,167,.25); --ok-tx:#00363A;
-  --win-bg:rgba(0,151,167,.07);
+  --dz-hover:rgba(14,116,144,.05); --auto-border:rgba(14,116,144,.40);
+  --caveat-bg:rgba(180,83,9,.05); --caveat-bd:rgba(180,83,9,.20); --caveat-tx:#451A00;
+  --ok-bg:rgba(14,116,144,.06); --ok-bd:rgba(14,116,144,.25); --ok-tx:#083344;
+  --win-bg:rgba(14,116,144,.07);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--ink);color:var(--text)}
@@ -250,6 +252,8 @@ nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:var(--nav-bg);
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 footer{padding:6px 0 20px;text-align:center}
 .nogrid-card{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+html.light .card,html.light .stat,html.light .vcard{box-shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04)}
+html.light .billhero{box-shadow:0 2px 8px rgba(0,0,0,.07)}
 @media print{nav,.btn,.seg{display:none!important}body{padding-bottom:0}.view{display:block!important}}
 </style>
 </head>

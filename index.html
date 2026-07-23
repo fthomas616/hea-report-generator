@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -25,14 +25,14 @@
   --win-bg:rgba(61,217,196,.07);
 }
 html.light{
-  --ink:#F5EDD8; --panel:#FFFAF0; --panel2:#FFF5E0; --line:#E4CFA0; --line2:#CDBA7A;
-  --peak:#D4580A; --off:#007A72; --batt:#6B4FAE; --loss:#B0A080; --bad:#C43B28;
-  --text:#1A1005; --muted:#6B5438; --dim:#9A8060;
-  --nav-bg:rgba(245,237,216,.94);
-  --dz-hover:rgba(0,122,114,.06); --auto-border:rgba(0,122,114,.40);
-  --caveat-bg:rgba(212,88,10,.06); --caveat-bd:rgba(212,88,10,.22); --caveat-tx:#5C2A00;
-  --ok-bg:rgba(0,122,114,.07); --ok-bd:rgba(0,122,114,.25); --ok-tx:#003F3B;
-  --win-bg:rgba(0,122,114,.08);
+  --ink:#F6FFFE; --panel:#FFFFFF; --panel2:#E8FAF7; --line:#A8DDD8; --line2:#5CC4BB;
+  --peak:#E84B1A; --off:#00B5A5; --batt:#7C3AED; --loss:#A0BCBA; --bad:#DC2626;
+  --text:#0D2422; --muted:#2E6B65; --dim:#6AADA8;
+  --nav-bg:rgba(246,255,254,.95);
+  --dz-hover:rgba(0,181,165,.07); --auto-border:rgba(0,181,165,.45);
+  --caveat-bg:rgba(232,75,26,.06); --caveat-bd:rgba(232,75,26,.25); --caveat-tx:#4A1200;
+  --ok-bg:rgba(0,181,165,.08); --ok-bd:rgba(0,181,165,.28); --ok-tx:#003530;
+  --win-bg:rgba(0,181,165,.09);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{background:var(--ink);color:var(--text)}
@@ -582,32 +582,86 @@ function analyze(rows){
 /* ═══════════ BILL PARSING ═══════════ */
 function grab(t,re,i){var m=t.match(re);return m?parseFloat(String(m[i||1]).replace(/,/g,"")):null;}
 function parseBill(t){
-  t=t.replace(/\u00a0/g," ");
+  t=t.replace(/ /g," ").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
   var b={};
-  b.total   = grab(t,/Total\s*Use\s*\(kWh\)\s*:?\s*([\d,]+(?:\.\d+)?)/i);
-  b.peak    = grab(t,/On[-\s]?Peak\s*Use\s*\(kWh\)\s*:?\s*([\d,]+(?:\.\d+)?)/i);
-  b.off     = grab(t,/Off[-\s]?Peak\s*Usage?\s*\(kWh\)\s*:?\s*([\d,]+(?:\.\d+)?)/i);
-  b.supply  = grab(t,/SUPPLY\s*\$?\s*([\d,]+\.\d{2})/i);
-  b.deliv   = grab(t,/DELIVERY\s*\$?\s*([\d,]+\.\d{2})/i);
-  b.tax     = grab(t,/TAXES?\s*&?\s*SURCHARGES?\s*\$?\s*([\d,]+\.\d{2})/i);
-  b.cost    = grab(t,/Service\s*Period\s*Total\s*\$?\s*([\d,]+\.\d{2})/i);
+
+  /* Total kWh -- "Total use-kWh 973"  or  "Total Use (kWh) : 604" */
+  b.total = grab(t,/Total\s+use[-]?kWh\s+([\d,]+(?:\.\d+)?)/i) ||
+            grab(t,/Total\s+Use\s*\(?kWh\)?\s*:?\s*([\d,]+(?:\.\d+)?)/i);
+
+  /* Peak/Off-peak kWh -- use charge line items, NOT the meter table.
+     "On-Peak Energy 53 kWh X $..." gives kWh right after Energy. */
+  b.peak = grab(t,/On[-\s]?Peak\s+Energy\s+([\d,]+)\s*kWh/i) ||
+           grab(t,/On[-\s]?Peak\s+Use\s*\(?kWh\)?\s*:?\s*([\d,]+)/i);
+  b.off  = grab(t,/Off[-\s]?Peak\s+Energy\s+([\d,]+)\s*kWh/i) ||
+           grab(t,/Off[-\s]?Peak\s+Us(?:age?|e)\s*\(?kWh\)?\s*:?\s*([\d,]+)/i);
+
+  /* Supply & Delivery -- section subtotals or summary-stub format */
+  b.supply = grab(t,/Total\s+Electric\s+Supply\s+Charges\s+([\d,]+\.\d{2})/i) ||
+             grab(t,/Supply\s*\$\s*([\d,]+\.\d{2})/i) ||
+             grab(t,/SUPPLY\s*\$?\s*([\d,]+\.\d{2})/i);
+  b.deliv  = grab(t,/Total\s+Electric\s+Delivery\s+Charges\s+([\d,]+\.\d{2})/i) ||
+             grab(t,/Delivery\s*\$\s*([\d,]+\.\d{2})/i) ||
+             grab(t,/DELIVERY\s*\$?\s*([\d,]+\.\d{2})/i);
+
+  b.tax = grab(t,/TAXES?\s*&?\s*SURCHARGES?\s*\$?\s*([\d,]+\.\d{2})/i);
+
+  /* Service period total -- Pepco label varies by bill period */
+  b.cost = grab(t,/Total\s+Electric\s+Charges\b[^\n\d]*([\d,]+\.\d{2})/i) ||
+           grab(t,/Service\s*Period\s*Total\s*\$?\s*([\d,]+\.\d{2})/i) ||
+           grab(t,/Total\s+Amount\s+Due\s+by\s+\w+\s+\d+,?\s+\d{4}\s*\$?\s*([\d,]+\.\d{2})/i) ||
+           grab(t,/Total\s+[Cc]urrent\s+[Cc]harges\s*\$?\s*([\d,]+\.\d{2})/i);
+
+  /* Rates -- Pepco lists Distribution Services FIRST, Generation Services SECOND.
+     Split on section headers so rates land in the correct bucket. */
   var r={};
-  r.genOn  = grab(t,/On\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
-  r.genOff = grab(t,/Off\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
-  var all=t.match(/(?:On|Off)\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/gi)||[];
-  if(all.length>=4){ /* second pair = distribution block */
-    r.distOn =parseFloat(all[2].match(/([\d.]+)\s*$/)[1]);
-    r.distOff=parseFloat(all[3].match(/([\d.]+)\s*$/)[1]);
+  var dIdx=t.search(/Distribution\s+Services/i);
+  var gIdx=t.search(/Generation\s+Services/i);
+  if(dIdx>=0&&gIdx>dIdx){
+    var dSec=t.slice(dIdx,gIdx), gSec=t.slice(gIdx);
+    r.distOn  = grab(dSec,/On[-\s]?Peak\s+Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+    r.distOff = grab(dSec,/Off[-\s]?Peak\s+Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+    r.genOn   = grab(gSec,/On[-\s]?Peak\s+Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+    r.genOff  = grab(gSec,/Off[-\s]?Peak\s+Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+  } else {
+    r.genOn  = grab(t,/On\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+    r.genOff = grab(t,/Off\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+    var all=t.match(/(?:On|Off)\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/gi)||[];
+    if(all.length>=4){
+      r.distOn =parseFloat(all[2].match(/([\d.]+)\s*$/)[1]);
+      r.distOff=parseFloat(all[3].match(/([\d.]+)\s*$/)[1]);
+    }
   }
-  r.cust   = grab(t,/Customer\s*Chr?g?e?\s*\$?\s*([\d.]+)/i);
-  r.proc   = grab(t,/Procurement\s*Cost\s*Adj\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
-  r.credit = grab(t,/Energy\s*Wise\s*Rewards?\s*Cr\.?\s*[-−]?\$?\s*([\d.]+)/i);
+  r.cust  = grab(t,/Customer\s*Charg?e?\s*\$?\s*([\d.]+)/i);
+  r.proc  = grab(t,/Procurement\s*Cost\s*Adj(?:ustment)?\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+  r.credit= grab(t,/Energy\s*Wise\s*Rewards?\s*Cr\.?\s*[-−]?\$?\s*([\d.]+)/i);
   b.rates=r;
-  var dm=t.match(/Read\s*Dates?\s*:?\s*(\d{1,2})\/(\d{1,2})\s*[-–]\s*(\d{1,2})\/(\d{1,2})/i);
-  if(dm){var y=(new Date()).getFullYear();
-    var ym=t.match(/(\d{4})/g); if(ym) y=+ym.filter(function(v){return +v>2000&&+v<2100;})[0]||y;
-    b.start=y+"-"+("0"+dm[1]).slice(-2)+"-"+("0"+dm[2]).slice(-2);
-    b.end  =y+"-"+("0"+dm[3]).slice(-2)+"-"+("0"+dm[4]).slice(-2);}
+
+  /* Dates -- "Billing Period: M-D-YYYY to M-D-YYYY"
+     or "MonthName D, YYYY to MonthName D, YYYY"
+     or "Read Date: MM/DD - MM/DD" (older format) */
+  var MONTHS={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  var bp=t.match(/Billing\s+Period\s*:?\s*(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\s+to\s+(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/i);
+  if(bp){
+    b.start=bp[3]+"-"+("0"+bp[1]).slice(-2)+"-"+("0"+bp[2]).slice(-2);
+    b.end  =bp[6]+"-"+("0"+bp[4]).slice(-2)+"-"+("0"+bp[5]).slice(-2);
+  } else {
+    var mp=t.match(/(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4})\s+to\s+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4})/i);
+    if(mp){
+      var m1=MONTHS[mp[1].toLowerCase().slice(0,3)],m2=MONTHS[mp[4].toLowerCase().slice(0,3)];
+      if(m1&&m2){
+        b.start=mp[3]+"-"+("0"+m1).slice(-2)+"-"+("0"+mp[2]).slice(-2);
+        b.end  =mp[6]+"-"+("0"+m2).slice(-2)+"-"+("0"+mp[5]).slice(-2);
+      }
+    } else {
+      var dm=t.match(/Read\s*Dates?\s*:?\s*(\d{1,2})\/(\d{1,2})\s*[-–]\s*(\d{1,2})\/(\d{1,2})/i);
+      if(dm){var y=(new Date()).getFullYear();
+        var ym=t.match(/(\d{4})/g); if(ym) y=+ym.filter(function(v){return +v>2000&&+v<2100;})[0]||y;
+        b.start=y+"-"+("0"+dm[1]).slice(-2)+"-"+("0"+dm[2]).slice(-2);
+        b.end  =y+"-"+("0"+dm[3]).slice(-2)+"-"+("0"+dm[4]).slice(-2);
+      }
+    }
+  }
   return b;
 }
 function fillBill(b){
@@ -797,10 +851,16 @@ function renderCycle(){
     if(L.noGridHrs>0){
       var h=L.noGridHrs, d=Math.floor(h/24), rem=Math.round(h%24);
       var dur=d>0?d+"d "+rem+"h":Math.round(h)+"h";
-      var fmt=function(dt){if(!dt)return"?";return(dt.getMonth()+1)+"/"+dt.getDate();};
+      var fmt=function(dt){if(!dt)return"?";return(dt.getMonth()+1)+"/"+dt.getDate()+" "+("0"+dt.getHours()).slice(-2)+":00";};
       el.hidden=false;
       $("noGridDur").textContent=dur;
-      $("noGridRange").textContent=fmt(L.noGridFrom)+" – "+fmt(L.noGridTo);
+      $("noGridRange").textContent=fmt(L.noGridFrom)+" to "+fmt(L.noGridTo);
+      var socTxt="—";
+      if(L.noGridSocS!==null&&L.noGridSocE!==null){
+        var drop=Math.round(L.noGridSocS)-Math.round(L.noGridSocE);
+        socTxt=Math.round(L.noGridSocS)+"%"+" → "+Math.round(L.noGridSocE)+"%"+(drop>0?" ("+drop+"% used)":"");
+      }
+      $("noGridSoc").textContent=socTxt;
     } else {el.hidden=true;}
   })();
   $("shapeTitle").textContent = pct<5?"The shape is working for you":"Peak exposure is climbing";

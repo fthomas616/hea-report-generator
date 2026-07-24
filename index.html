@@ -331,13 +331,13 @@ html.light .billhero{box-shadow:0 2px 8px rgba(0,0,0,.07)}
       <div class="fields" id="billFields">
         <div class="f"><label for="bStart">Start date</label><input type="date" id="bStart"></div>
         <div class="f"><label for="bEnd">End date</label><input type="date" id="bEnd"></div>
-        <div class="f"><label for="bTotal">Total kWh</label><input type="number" id="bTotal" inputmode="decimal" placeholder="604"></div>
-        <div class="f"><label for="bPeak">On-peak kWh</label><input type="number" id="bPeak" inputmode="decimal" placeholder="14"></div>
-        <div class="f"><label for="bOff">Off-peak kWh</label><input type="number" id="bOff" inputmode="decimal" placeholder="590"></div>
-        <div class="f"><label for="bSupply">Supply $</label><input type="number" id="bSupply" step="0.01" inputmode="decimal" placeholder="72.11"></div>
-        <div class="f"><label for="bDeliv">Delivery $</label><input type="number" id="bDeliv" step="0.01" inputmode="decimal" placeholder="38.13"></div>
-        <div class="f"><label for="bTax">Taxes $</label><input type="number" id="bTax" step="0.01" inputmode="decimal" placeholder="23.65"></div>
-        <div class="f wide"><label for="bCost">Service period total $</label><input type="number" id="bCost" step="0.01" inputmode="decimal" placeholder="133.89"></div>
+        <div class="f"><label for="bTotal">Total kWh</label><input type="number" id="bTotal" inputmode="decimal" autocomplete="off"></div>
+        <div class="f"><label for="bPeak">On-peak kWh</label><input type="number" id="bPeak" inputmode="decimal" autocomplete="off"></div>
+        <div class="f"><label for="bOff">Off-peak kWh</label><input type="number" id="bOff" inputmode="decimal" autocomplete="off"></div>
+        <div class="f"><label for="bSupply">Supply $</label><input type="number" id="bSupply" step="0.01" inputmode="decimal" autocomplete="off"></div>
+        <div class="f"><label for="bDeliv">Delivery $</label><input type="number" id="bDeliv" step="0.01" inputmode="decimal" autocomplete="off"></div>
+        <div class="f"><label for="bTax">Taxes $</label><input type="number" id="bTax" step="0.01" inputmode="decimal" autocomplete="off"></div>
+        <div class="f wide"><label for="bCost">Service period total $</label><input type="number" id="bCost" step="0.01" inputmode="decimal" autocomplete="off"></div>
       </div>
     </div>
 
@@ -586,7 +586,7 @@ function analyze(rows){
 /* ═══════════ BILL PARSING ═══════════ */
 function grab(t,re,i){var m=t.match(re);return m?parseFloat(String(m[i||1]).replace(/,/g,"")):null;}
 function parseBill(t){
-  t=t.replace(/ /g," ").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  t=t.replace(/ /g," ").replace(/[–—−]/g,"-").replace(/[  ]/g," ").replace(/×/g,"X").replace(/\r\n|\r/g,"\n");
   var b={};
 
   /* Total kWh -- "Total use-kWh 973"  or  "Total Use (kWh) : 604" */
@@ -677,7 +677,14 @@ function fillBill(b){
   var got=[b.total,b.cost].filter(function(v){return v!=null;}).length;
   $("s2no").classList.toggle("done",got===2);
   checkReady();
-  toast(got===2?"Bill extracted — check the fields":"Partial extract — fill the gaps manually");
+  var miss=[];
+  if(!b.total) miss.push("total kWh");
+  if(!b.cost)  miss.push("bill total $");
+  if(!b.start) miss.push("start date");
+  if(!b.peak)  miss.push("on-peak kWh");
+  if(!b.supply)miss.push("supply $");
+  toast(miss.length===0?"Bill extracted — verify the fields below"
+    :"Partial extract — missing: "+miss.join(", "));
 }
 
 /* ═══════════ READINESS ═══════════ */

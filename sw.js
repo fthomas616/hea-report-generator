@@ -6,8 +6,8 @@
 ================================================================================
 */
 
-const CACHE_NAME = 'hea-report-v19';
-const CACHE_VERSION = '7.0.0';
+const CACHE_NAME = 'hea-report-v20';
+const CACHE_VERSION = '7.1.0';
 
 // Files to cache for offline use
 const FILES_TO_CACHE = [

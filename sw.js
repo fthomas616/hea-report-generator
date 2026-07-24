@@ -6,13 +6,12 @@
 ================================================================================
 */
 
-const CACHE_NAME = 'hea-report-v20';
-const CACHE_VERSION = '7.1.0';
+const CACHE_NAME = 'hea-report-v18';
+const CACHE_VERSION = '6.5.0';
 
 // Files to cache for offline use
 const FILES_TO_CACHE = [
-  './index.html',
-  './manifest.json',
+    './manifest.json',
   './xlsx.full.min.js',
   './pdf.min.js',
   './pdf.worker.min.js',

@@ -698,18 +698,19 @@ function finishLogs(rows,sources){
 var PDFW=null;
 function ensurePdfWorker(){
   if(PDFW) return PDFW;
-  var LOCAL="pdf.worker.min.js";
   var CDN="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  var LOCAL="pdf.worker.min.js";
   PDFW=new Promise(function(resolve){
     if(typeof pdfjsLib==="undefined"){resolve("nolib");return;}
-    fetch(LOCAL,{method:"HEAD"}).then(function(r){
+    // CDN worker must match the CDN main library version; try it first.
+    // Fall back to local only when offline (file:// or no network).
+    fetch(CDN,{method:"HEAD"}).then(function(r){
       if(!r.ok) throw 0;
-      pdfjsLib.GlobalWorkerOptions.workerSrc=LOCAL; resolve("local");
+      pdfjsLib.GlobalWorkerOptions.workerSrc=CDN; resolve("main");
     }).catch(function(){
-      fetch(CDN).then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(src){
-        pdfjsLib.GlobalWorkerOptions.workerSrc=
-          URL.createObjectURL(new Blob([src],{type:"text/javascript"}));
-        resolve("blob");
+      fetch(LOCAL,{method:"HEAD"}).then(function(r){
+        if(!r.ok) throw 0;
+        pdfjsLib.GlobalWorkerOptions.workerSrc=LOCAL; resolve("local");
       }).catch(function(){
         pdfjsLib.GlobalWorkerOptions.workerSrc=CDN; resolve("main");
       });

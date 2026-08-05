@@ -601,7 +601,7 @@ function parseBill(t){
   b.supply  = grab(t,/SUPPLY\s*\$?\s*([\d,]+\.\d{2})/i);
   b.deliv   = grab(t,/DELIVERY\s*\$?\s*([\d,]+\.\d{2})/i);
   b.tax     = grab(t,/TAXES?\s*&?\s*SURCHARGES?\s*\$?\s*([\d,]+\.\d{2})/i);
-  b.cost    = grab(t,/Service\s*Period\s*Total\s*\$?\s*([\d,]+\.\d{2})/i);
+  b.cost    = grab(t,/Service\s*Period\s*Total\s*:?\s*\$?\s*([\d,]+\.\d{2})/i);
   var r={};
   r.genOn  = grab(t,/On\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
   r.genOff = grab(t,/Off\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);

@@ -468,8 +468,8 @@ footer{padding:6px 0 20px;text-align:center}
 </nav>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="./xlsx.full.min.js"></script>
+<script src="./pdf.min.js"></script>
 <script>
 "use strict";
 
@@ -698,22 +698,17 @@ function finishLogs(rows,sources){
 var PDFW=null;
 function ensurePdfWorker(){
   if(PDFW) return PDFW;
+  var LOCAL="./pdf.worker.min.js";
   var CDN="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  var LOCAL="pdf.worker.min.js";
   PDFW=new Promise(function(resolve){
     if(typeof pdfjsLib==="undefined"){resolve("nolib");return;}
-    // CDN worker must match the CDN main library version; try it first.
-    // Fall back to local only when offline (file:// or no network).
-    fetch(CDN,{method:"HEAD"}).then(function(r){
+    // Local worker matches the local main library; prefer it so PDF parsing
+    // works offline (installed PWA) with no data leaving the device.
+    fetch(LOCAL,{method:"HEAD"}).then(function(r){
       if(!r.ok) throw 0;
-      pdfjsLib.GlobalWorkerOptions.workerSrc=CDN; resolve("main");
+      pdfjsLib.GlobalWorkerOptions.workerSrc=LOCAL; resolve("local");
     }).catch(function(){
-      fetch(LOCAL,{method:"HEAD"}).then(function(r){
-        if(!r.ok) throw 0;
-        pdfjsLib.GlobalWorkerOptions.workerSrc=LOCAL; resolve("local");
-      }).catch(function(){
-        pdfjsLib.GlobalWorkerOptions.workerSrc=CDN; resolve("main");
-      });
+      pdfjsLib.GlobalWorkerOptions.workerSrc=CDN; resolve("main");
     });
   });
   return PDFW;
@@ -1366,18 +1361,48 @@ document.querySelectorAll("[data-goto]").forEach(function(b){
 
 /* ═══════════ INSTALLABLE ═══════════ */
 (function(){
-  var icon="data:image/svg+xml,"+encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0B1020"/>'+
-    '<circle cx="256" cy="256" r="150" fill="none" stroke="#232B4A" stroke-width="14"/>'+
-    '<path d="M256 106v90" stroke="#3DD9C4" stroke-width="30" stroke-linecap="round"/>'+
-    '<path d="M362 362l-64-64" stroke="#FFB020" stroke-width="30" stroke-linecap="round"/>'+
-    '<circle cx="256" cy="256" r="22" fill="#E6EAF7"/></svg>');
-  var m={name:"HEA · Home Energy Analysis",short_name:"HEA",start_url:".",display:"standalone",
-    background_color:"#0B1020",theme_color:"#0B1020",orientation:"portrait",
-    icons:[{src:icon,sizes:"512x512",type:"image/svg+xml",purpose:"any"}]};
-  var l=document.createElement("link"); l.rel="manifest";
-  l.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:"application/manifest+json"}));
+  // Link the real manifest.json so browsers can offer Add to Home Screen.
+  var l=document.createElement("link");
+  l.rel="manifest"; l.href="./manifest.json";
   document.head.appendChild(l);
+
+  // Register service worker for offline caching — all file processing stays
+  // on-device; no bill or log data is ever sent to a server.
+  if("serviceWorker" in navigator){
+    window.addEventListener("load",function(){
+      navigator.serviceWorker.register("./sw.js").then(function(reg){
+        reg.addEventListener("updatefound",function(){
+          var sw=reg.installing;
+          sw.addEventListener("statechange",function(){
+            if(sw.state==="installed"&&navigator.serviceWorker.controller){
+              var bar=document.createElement("div");
+              bar.innerHTML='New version available! <button onclick="location.reload()" '+
+                'style="margin-left:10px;padding:4px 12px;background:#3DD9C4;color:#0B1020;'+
+                'border:none;border-radius:6px;cursor:pointer;font-weight:700">Update</button>';
+              bar.style.cssText="position:fixed;top:0;left:0;right:0;background:#1B2240;"+
+                "color:#E6EAF7;padding:10px 16px;text-align:center;z-index:9999;font-size:14px;"+
+                "border-bottom:1px solid #232B4A;";
+              document.body.prepend(bar);
+            }
+          });
+        });
+      }).catch(function(e){console.warn("[PWA] SW registration failed:",e);});
+    });
+  }
+
+  // Show install prompt when available.
+  var deferred=null;
+  window.addEventListener("beforeinstallprompt",function(e){
+    e.preventDefault(); deferred=e;
+    var btn=document.getElementById("installBtn");
+    if(btn){btn.style.display="block"; btn.addEventListener("click",function(){
+      deferred.prompt();
+      deferred.userChoice.then(function(r){
+        if(r.outcome==="accepted") btn.style.display="none";
+        deferred=null;
+      });
+    });}
+  });
 })();
 
 renderHistory();

@@ -1,11 +1,11 @@
 {
-  "name": "HEA Report Generator",
-  "short_name": "HEA Report",
-  "description": "Home Energy Analysis & Battery System Performance Tool",
+  "name": "HEA · Home Energy Analysis",
+  "short_name": "HEA",
+  "description": "Home Energy Analysis — offline battery & bill reporting tool",
   "start_url": "/index.html",
   "display": "standalone",
-  "background_color": "#1e3c72",
-  "theme_color": "#667eea",
+  "background_color": "#0B1020",
+  "theme_color": "#0B1020",
   "orientation": "portrait-primary",
   "scope": "/",
   "icons": [
@@ -23,7 +23,6 @@
     }
   ],
   "categories": ["utilities", "productivity"],
-  "screenshots": [],
   "shortcuts": [
     {
       "name": "Generate Report",

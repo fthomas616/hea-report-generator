@@ -1,230 +1,1385 @@
-<!--
-================================================================================
-  HEA REPORT GENERATOR
-  Home Energy Analysis & Battery System Performance Tool
-
-  Copyright (c) 2025 Frank L. Thomas Sr.
-  All Rights Reserved.
-
-  CONFIDENTIAL AND PROPRIETARY
-
-  This software and its source code are the exclusive intellectual property
-  of the author. The concepts, algorithms, financial calculation methodology,
-  peak deduction formula, and overall system architecture contained herein
-  are original works protected under United States and international
-  copyright law.
-
-  UNAUTHORIZED USE PROHIBITED:
-  No part of this software may be reproduced, distributed, transmitted,
-  displayed, published, or broadcast in any form or by any means, including
-  but not limited to copying, modifying, merging, sublicensing, selling,
-  or creating derivative works, without the express prior written permission
-  of the copyright holder.
-
-  PROPRIETARY METHODOLOGY NOTICE:
-  The following analytical methods are original innovations of the author:
-  - Net True Savings calculation (TOU savings minus actual peak hours paid)
-  - Battery contribution percentage reporting methodology
-  - Peak slot coverage tracking and missed slot cost analysis
-  - Delta 2 Max solar value integration methodology
-  - Multi-source energy financial reconciliation framework
-  - Average kWh calculation corrected for multi-day billing periods
-
-  VERSION HISTORY:
-  v1.0 - Initial release
-  v2.0 - Added TOU analysis
-  v3.0 - Added historical tracking, alerts, equipment health
-  v4.0 - Added peak period analysis, discharge cycles, EPS monitoring
-  v5.0 - Peak deduction formula, corrected average kWh math,
-          Executive Summary 4-box grid, duplicate prevention,
-          discharge cycles SOC math fix, comprehensive sections
-  v6.5 - New Pepco bill format support (TOU labels, abbreviated dates,
-          2-digit year), YYYY/MM/DD EG4 timestamp fix, improved
-          peak/off-peak extraction via charge table
-
-  CREATION DATE: 2025
-  LAST MODIFIED: February 2026
-
-  For licensing inquiries: 
-================================================================================
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HEA Report Generator - Complete v6.5</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1020">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="HEA">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>HEA · Home Energy Analysis</title>
+<style>
+:root{
+  --ink:#0B1020; --panel:#151B32; --panel2:#1B2240; --line:#232B4A; --line2:#2E3760;
+  --peak:#FFB020; --off:#3DD9C4; --batt:#8B7DF5; --loss:#4A5578; --bad:#FF6B6B;
+  --text:#E6EAF7; --muted:#8590B5; --dim:#5B6690;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+  --nav:calc(58px + env(safe-area-inset-bottom));
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{background:var(--ink);color:var(--text)}
+body{font-family:var(--sans);font-size:15px;line-height:1.5;padding-bottom:var(--nav);
+  -webkit-font-smoothing:antialiased;overflow-x:hidden}
+.wrap{max-width:520px;margin:0 auto;padding:0 16px}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+header{padding:calc(env(safe-area-inset-top) + 18px) 0 10px}
+header h1{font-size:19px;font-weight:650;letter-spacing:-.02em;line-height:1.15}
+header .sub{margin-top:5px;color:var(--muted)}
+.view{display:none;animation:fade .22s ease}
+.view.on{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.view{animation:none}*{transition:none!important}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+.card h2{font-size:13px;font-weight:650;letter-spacing:-.01em;margin-bottom:2px}
+.card .note{font-size:12.5px;color:var(--muted);line-height:1.45}
 
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="HEA Report">
-  <meta name="theme-color" content="#667eea">
-  <link rel="apple-touch-icon" href="icon-192.png">
+/* ---------- steps ---------- */
+.stephd{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.stepno{width:24px;height:24px;border-radius:8px;background:var(--line);color:var(--muted);
+  font-family:var(--mono);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+.stepno.done{background:var(--off);color:var(--ink)}
+.stephd .t{flex:1;min-width:0}
+.stephd .t b{font-size:14px;font-weight:650;display:block;letter-spacing:-.01em}
+.stephd .t small{font-size:11.5px;color:var(--muted);display:block;margin-top:1px}
 
-  <script src="xlsx.full.min.js"></script>
-  <script src="pdf.min.js"></script>
+/* ---------- dropzone ---------- */
+.dz{border:1.5px dashed var(--line2);border-radius:13px;padding:22px 14px;text-align:center;
+  cursor:pointer;transition:border-color .15s,background .15s;display:block}
+.dz:hover,.dz.over{border-color:var(--off);background:rgba(61,217,196,.05)}
+.dz svg{width:26px;height:26px;stroke:var(--dim);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.dz b{display:block;font-size:13px;font-weight:600;margin-top:8px}
+.dz small{display:block;font-size:11.5px;color:var(--muted);margin-top:3px}
+.dz:focus-within{border-color:var(--off)}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 
-  <!-- PWA Service Worker Registration -->
-  <script>
-    (function(W,n){const K=W();while(!![]){try{const k=-parseInt(hea_k(0x0))/0x1*(parseInt(hea_k(0x2))/0x2)+-parseInt(hea_k(0xa))/0x3*(parseInt(hea_k(0x1))/0x4)+-parseInt(hea_k(0x6))/0x5*(parseInt(hea_k(0x8))/0x6)+-parseInt(hea_k(0x9))/0x7*(parseInt(hea_k(0x4))/0x8)+-parseInt(hea_k(0x3))/0x9+-parseInt(hea_k(0xb))/0xa*(-parseInt(hea_k(0x7))/0xb)+parseInt(hea_k(0x5))/0xc;if(k===n)break;else K['push'](K['shift']());}catch(Z){K['push'](K['shift']());}}}(hea_K,0x3b870));const hea_n=(function(){let W=!![];return function(n,K){const k=W?function(){if(K){const Z=K['apply'](n,arguments);return K=null,Z;}}:function(){};return W=![],k;};}()),hea_W=hea_n(this,function(){return hea_W['toString']()['search']('(((.+)+)+)+$')['toString']()['constructor'](hea_W)['search']('(((.+)+)+)+$');});function hea_k(W,n){W=W-0x0;const K=hea_K();let k=K[W];if(hea_k['bfSxwK']===undefined){var Z=function(j){const N='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';let g='',h='',s=g+Z;for(let a=0x0,r,c,y=0x0;c=j['charAt'](y++);~c&&(r=a%0x4?r*0x40+c:c,a++%0x4)?g+=s['charCodeAt'](y+0xa)-0xa!==0x0?String['fromCharCode'](0xff&r>>(-0x2*a&0x6)):a:0x0){c=N['indexOf'](c);}for(let G=0x0,Q=g['length'];G<Q;G++){h+='%'+('00'+g['charCodeAt'](G)['toString'](0x10))['slice'](-0x2);}return decodeURIComponent(h);};hea_k['nYHoFY']=Z,hea_k['slVhRn']={},hea_k['bfSxwK']=!![];}const P=K[0x0],w=W+P,T=hea_k['slVhRn'][w];if(!T){const j=function(N){this['xbZwXv']=N,this['LcGmol']=[0x1,0x0,0x0],this['gBoUEw']=function(){return'newState';},this['ZqOohd']='\x5cw+\x20*\x5c(\x5c)\x20*{\x5cw+\x20*',this['uCmvlG']='[\x27|\x22].+[\x27|\x22];?\x20*}';};j['prototype']['SXeTtX']=function(){const N=new RegExp(this['ZqOohd']+this['uCmvlG']),g=N['test'](this['gBoUEw']['toString']())?--this['LcGmol'][0x1]:--this['LcGmol'][0x0];return this['UUCblw'](g);},j['prototype']['UUCblw']=function(N){if(!Boolean(~N))return N;return this['geRiPp'](this['xbZwXv']);},j['prototype']['geRiPp']=function(N){for(let g=0x0,h=this['LcGmol']['length'];g<h;g++){this['LcGmol']['push'](Math['round'](Math['random']())),h=this['LcGmol']['length'];}return N(this['LcGmol'][0x0]);},new j(hea_k)['SXeTtX'](),k=hea_k['nYHoFY'](k),hea_k['slVhRn'][w]=k;}else k=T;return k;}function hea_K(){const P=['nLP2s1HZyW','otC0mtq4B0XmCNrW','ndaXodr4DxnwC1i','mZeYmdKZz0fSAM5z','mti1ntGZmNziyvffrq','nJi3nZeXnKLAwKzqra','mJyWnJy1qwflsNH0','ntm0mtq2ogLusMjcuq','nLPuExnRAW','mtrWtMzfvvG','m3bJvhbcra','mtb6ufr3vLy'];hea_K=function(){return P;};return hea_K();}hea_W();'serviceWorker'in navigator&&window['addEventListener']('load',()=>{navigator['serviceWorker']['register']('./sw.js')['then'](W=>{console['log']('[PWA]\x20Service\x20Worker\x20registered:',W['scope']),W['addEventListener']('updatefound',()=>{const n=W['installing'];n['addEventListener']('statechange',()=>{if(n['state']==='installed'&&navigator['serviceWorker']['controller']){console['log']('[PWA]\x20New\x20version\x20available\x20—\x20refresh\x20to\x20update');const K=document['createElement']('div');K['innerHTML']='🔄\x20New\x20version\x20available!\x20<button\x20onclick=\x22location.reload()\x22\x20style=\x22margin-left:10px;padding:4px\x2010px;background:#667eea;color:white;border:none;border-radius:4px;cursor:pointer;\x22>Update\x20Now</button>',K['style']['cssText']='position:fixed;top:0;left:0;right:0;background:#fff3cd;padding:10px;text-align:center;z-index:9999;font-size:14px;border-bottom:1px\x20solid\x20#ffc107;',document['body']['prepend'](K);}});});})['catch'](W=>console['warn']('[PWA]\x20Service\x20Worker\x20registration\x20failed:',W));});let deferredPrompt;window['addEventListener']('beforeinstallprompt',W=>{W['preventDefault'](),deferredPrompt=W;const n=document['getElementById']('installBtn');n&&(n['style']['display']='block',n['addEventListener']('click',()=>{deferredPrompt['prompt'](),deferredPrompt['userChoice']['then'](K=>{K['outcome']==='accepted'&&(console['log']('[PWA]\x20User\x20installed\x20the\x20app'),n['style']['display']='none'),deferredPrompt=null;});}));}),window['addEventListener']('appinstalled',()=>{console['log']('[PWA]\x20App\x20successfully\x20installed');const W=document['getElementById']('installBtn');if(W)W['style']['display']='none';});
-  </script>
+.chips{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+.chip{display:flex;align-items:center;gap:8px;background:var(--ink);border:1px solid var(--line);
+  border-radius:10px;padding:8px 10px;font-size:12px}
+.chip .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:11px}
+.chip .st{font-size:10.5px;font-family:var(--mono);flex:none}
+.chip .st.ok{color:var(--off)} .chip .st.err{color:var(--bad)} .chip .st.busy{color:var(--peak)}
 
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Segoe UI',Arial,sans-serif; background:linear-gradient(135deg,#1e3c72,#2a5298); min-height:100vh; padding:20px; color:#333; line-height:1.6; }
-    .container { max-width:1200px; margin:auto; background:white; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.3); overflow:hidden; }
-    .header { background:linear-gradient(135deg,#667eea,#764ba2); color:white; padding:30px; text-align:center; }
-    .header h1 { font-size:32px; margin-bottom:10px; }
-    .content { padding:40px; }
-    .upload-section { background:#f8f9fa; border:2px dashed #667eea; border-radius:8px; padding:40px; text-align:center; margin-bottom:30px; cursor:pointer; }
-    .upload-section:hover { background:#e9ecef; border-color:#764ba2; }
-    .upload-section.active { background:#d4edda; border-color:#28a745; }
-    .bill-inputs { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px; margin-bottom:30px; }
-    .input-group { display:flex; flex-direction:column; }
-    .input-group label { font-weight:600; margin-bottom:8px; color:#495057; }
-    .input-group input, .input-group textarea { padding:12px; border:1px solid #ced4da; border-radius:6px; font-size:14px; }
-    .input-group input:focus, .input-group textarea:focus { outline:none; border-color:#667eea; }
-    .btn { padding:16px; font-size:18px; font-weight:600; border:none; border-radius:8px; cursor:pointer; margin-top:20px; }
-    .btn-primary { background:linear-gradient(135deg,#667eea,#764ba2); color:white; width:100%; }
-    .btn-primary:hover { transform:translateY(-2px); box-shadow:0 5px 20px rgba(102,126,234,0.4); }
-    .btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
-    .btn-clear { background:#dc3545; color:white; margin-top:10px; width:100%; }
-    .status { padding:15px; border-radius:6px; margin-bottom:20px; display:none; }
-    .status.success { background:#d4edda; color:#155724; border:1px solid #c3e6cb; display:block; }
-    .status.error { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; display:block; }
-  </style>
+/* ---------- segmented ---------- */
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;background:var(--ink);
+  border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:12px}
+.seg button{background:none;border:0;padding:8px 4px;border-radius:8px;color:var(--muted);
+  font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
+.seg button.on{background:var(--panel2);color:var(--text)}
+.seg button:focus-visible{outline:2px solid var(--off);outline-offset:-2px}
+.pane{display:none} .pane.on{display:block}
+
+textarea{width:100%;min-height:110px;background:var(--ink);border:1px solid var(--line);border-radius:11px;
+  padding:11px;color:var(--text);font-family:var(--mono);font-size:11.5px;line-height:1.5;resize:vertical}
+textarea:focus{outline:none;border-color:var(--off)}
+
+/* ---------- fields ---------- */
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+.f{min-width:0}
+.f label{display:block;font-size:10.5px;color:var(--muted);margin-bottom:4px;letter-spacing:.02em}
+.f input{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:9px 10px;
+  color:var(--text);font-family:var(--mono);font-size:13.5px;font-weight:600}
+.f input:focus{outline:none;border-color:var(--off)}
+.f.wide{grid-column:1/-1}
+.f input.auto{border-color:rgba(61,217,196,.35)}
+
+/* ---------- buttons ---------- */
+.btn{display:block;width:100%;padding:13px;border-radius:12px;border:1px solid var(--line2);
+  background:var(--panel2);color:var(--text);font-family:inherit;font-size:14px;font-weight:650;
+  cursor:pointer;letter-spacing:-.01em;transition:background .15s,opacity .15s}
+.btn:hover{background:var(--line2)}
+.btn:focus-visible{outline:2px solid var(--off);outline-offset:2px}
+.btn.primary{background:var(--off);color:#062822;border-color:var(--off)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:none;border-color:var(--line);color:var(--muted);font-size:13px;padding:11px}
+.btn.sm{padding:9px;font-size:12.5px}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:9px}
+
+/* ---------- dial ---------- */
+.dialwrap{position:relative;display:flex;justify-content:center;margin:2px 0 4px}
+.dialwrap svg{width:100%;max-width:330px;height:auto;display:block}
+.dialcenter{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;width:130px}
+.dialcenter .big{font-family:var(--mono);font-size:38px;font-weight:600;line-height:1;letter-spacing:-.04em}
+.dialcenter .cap{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.3}
+.legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:2px}
+.lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.dot{width:8px;height:8px;border-radius:2px;flex:none}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:11px 10px}
+.stat .v{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.stat .k{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.25}
+
+.strip{display:flex;align-items:flex-end;gap:2px;height:78px;margin-top:12px}
+.dcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;cursor:pointer;min-width:0}
+.dcol i{display:block;border-radius:1px}
+.dcol.sel i{outline:1px solid var(--text)}
+.dcol:active i{opacity:.6}
+.striplbl{display:flex;justify-content:space-between;margin-top:7px}
+.dayread{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.dayread div{min-width:0}
+.dayread .v{font-family:var(--mono);font-size:15px;font-weight:600;letter-spacing:-.02em}
+.dayread .k{font-size:9.5px;color:var(--muted);margin-top:2px}
+
+/* ---------- rows ---------- */
+.rows{margin-top:10px}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .l{font-size:13px;min-width:0}
+.row .calc{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:2px}
+.row .a{font-family:var(--mono);font-size:14px;font-weight:600;flex:none;letter-spacing:-.02em}
+.row.tot{border-top:1px solid var(--line);border-bottom:0;margin-top:4px;padding-top:11px}
+.row.tot .l{font-weight:650;font-size:13.5px}
+.row.tot .a{font-size:17px}
+.cr{color:var(--off)}
+.billhero{background:linear-gradient(150deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-radius:18px;padding:18px;margin-bottom:12px}
+.billhero .amt{font-family:var(--mono);font-size:44px;font-weight:600;letter-spacing:-.045em;line-height:1}
+.billhero .meta{display:flex;gap:18px;margin-top:12px}
+.billhero .meta .v{font-family:var(--mono);font-size:15px;font-weight:600}
+.billhero .meta .k{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* ---------- flow ---------- */
+.fbar{display:flex;height:38px;border-radius:9px;overflow:hidden;margin:14px 0 12px}
+.frow{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid var(--line)}
+.frow:last-child{border-bottom:0}
+.frow .sw{width:9px;height:9px;border-radius:2px;flex:none;margin-top:5px}
+.frow .fl{flex:1;min-width:0}
+.frow .fl b{font-size:13px;font-weight:600;display:block}
+.frow .fl small{font-size:11.5px;color:var(--muted);display:block;margin-top:1px;line-height:1.4}
+.frow .fv{font-family:var(--mono);font-size:14px;font-weight:600;flex:none;text-align:right}
+.frow .fv em{display:block;font-style:normal;font-size:10px;color:var(--muted);font-weight:400;margin-top:2px}
+
+/* ---------- model ---------- */
+.ctl{margin-bottom:15px}
+.ctl .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+.ctl label{font-size:12px;color:var(--muted)}
+.ctl .val{font-family:var(--mono);font-size:14px;font-weight:600}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:26px;background:transparent;display:block}
+input[type=range]::-webkit-slider-runnable-track{height:5px;background:var(--line);border-radius:3px}
+input[type=range]::-moz-range-track{height:5px;background:var(--line);border-radius:3px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;
+  background:var(--text);margin-top:-9.5px;border:5px solid var(--panel);box-shadow:0 0 0 1px var(--line)}
+input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--text);
+  border:5px solid var(--panel);box-shadow:0 0 0 1px var(--line)}
+input[type=range]:focus-visible{outline:2px solid var(--off);outline-offset:3px;border-radius:4px}
+.numin{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.numin:last-of-type{border-bottom:0}
+.numin .nl{font-size:12.5px;min-width:0}
+.numin .nl small{display:block;font-size:10.5px;color:var(--dim);margin-top:2px}
+.numin input{font-family:var(--mono);font-size:14px;font-weight:600;width:104px;flex:none;text-align:right;
+  background:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 10px;color:var(--text)}
+.numin input:focus{outline:none;border-color:var(--off)}
+.toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0 2px}
+.tg{width:50px;height:29px;border-radius:15px;background:var(--line);position:relative;flex:none;
+  cursor:pointer;transition:background .18s;border:0;padding:0}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:23px;height:23px;border-radius:50%;
+  background:var(--text);transition:transform .18s}
+.tg[aria-checked=true]{background:var(--off)}
+.tg[aria-checked=true]::after{transform:translateX(21px);background:var(--ink)}
+.tg:focus-visible{outline:2px solid var(--off);outline-offset:2px}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0 0}
+.vcard{background:var(--ink);border:1px solid var(--line);border-radius:13px;padding:13px 12px;text-align:center}
+.vcard.win{border-color:var(--off);background:rgba(61,217,196,.07)}
+.vcard .vt{font-size:10.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-family:var(--mono)}
+.vcard .vv{font-family:var(--mono);font-size:25px;font-weight:600;letter-spacing:-.035em;margin-top:6px;line-height:1}
+.verdict{margin-top:12px;padding:12px;border-radius:12px;background:var(--ink);border:1px solid var(--line);
+  font-size:12.5px;line-height:1.5;color:var(--muted)}
+.verdict b{color:var(--text);font-weight:600}
+
+.caveat{display:flex;gap:9px;padding:11px 12px;border-radius:12px;background:rgba(255,176,32,.06);
+  border:1px solid rgba(255,176,32,.22);font-size:12px;line-height:1.45;color:#E8D5AE;margin-bottom:12px}
+.caveat b{color:var(--peak);font-weight:600}
+.okbox{background:rgba(61,217,196,.06);border-color:rgba(61,217,196,.25);color:#BFEDE6}
+.okbox b{color:var(--off)}
+
+/* ---------- empty ---------- */
+.empty{text-align:center;padding:52px 22px}
+.empty svg{width:38px;height:38px;stroke:var(--line2);fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.empty b{display:block;font-size:15px;font-weight:650;margin-top:14px}
+.empty p{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+.empty .btn{margin-top:18px;max-width:230px;margin-left:auto;margin-right:auto}
+
+/* ---------- history ---------- */
+.hrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.hrow:last-child{border-bottom:0}
+.hrow .hd{flex:1;min-width:0}
+.hrow .hd b{font-family:var(--mono);font-size:12.5px;font-weight:600;display:block}
+.hrow .hd small{font-size:11px;color:var(--muted)}
+.hrow .hv{font-family:var(--mono);font-size:13.5px;font-weight:600}
+.x{background:none;border:0;color:var(--dim);cursor:pointer;padding:4px 6px;font-size:16px;line-height:1;flex:none}
+.x:hover{color:var(--bad)}
+
+/* ---------- nav ---------- */
+nav{position:fixed;bottom:0;left:0;right:0;z-index:50;background:rgba(11,16,32,.93);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom)}
+.navin{max-width:520px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tab{background:none;border:0;padding:9px 4px 10px;color:var(--dim);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;gap:4px;font-family:inherit;position:relative}
+.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tab span{font-size:10px;font-weight:500}
+.tab.on{color:var(--text)}
+.tab.locked{opacity:.38}
+.tab:focus-visible{outline:2px solid var(--off);outline-offset:-3px;border-radius:9px}
+.pip{position:absolute;top:6px;right:calc(50% - 17px);width:6px;height:6px;border-radius:50%;background:var(--off)}
+
+.toast{position:fixed;left:50%;bottom:calc(var(--nav) + 14px);transform:translateX(-50%) translateY(12px);
+  background:var(--panel2);border:1px solid var(--line2);border-radius:11px;padding:11px 16px;
+  font-size:13px;z-index:99;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;max-width:88vw;text-align:center}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+footer{padding:6px 0 20px;text-align:center}
+.rptframe{background:#fff;border-radius:12px;padding:4px 14px 14px;overflow-x:auto}
+.rptframe .hero{margin-top:12px}
+@media print{nav,.btn,.seg,header{display:none!important}body{padding-bottom:0}
+  .view{display:none!important}.view#v-report{display:block!important}
+  #reportEmpty,.btnrow{display:none!important}#reportBody{display:block!important}
+  .rptframe{padding:0;border-radius:0}.wrap{max-width:100%;padding:0}}
+</style>
 </head>
-<body onload="initApp()">
-<div class="container">
-  <div class="header">
-    <h1>Home Energy Analysis (HEA) Report Generator</h1>
-    <p>Complete Comprehensive Analysis v6.5</p>
-    <!-- PWA Install Button - only shows when installable -->
-    <button id="installBtn" onclick="installApp()"
-      style="display:none; margin-top:15px; padding:10px 25px; background:white;
-             color:#667eea; border:none; border-radius:20px; font-weight:700;
-             font-size:15px; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,0.2);">
-      📱 Install App on This Device
-    </button>
-    <!-- Offline indicator -->
-    <div id="offlineIndicator"
-      style="display:none; margin-top:10px; background:rgba(255,193,7,0.3);
-             padding:6px 15px; border-radius:12px; font-size:13px;">
-      ⚡ Offline Mode — Using cached data
-    </div>
-  </div>
-  
-  <div class="content">
-    <div id="status" class="status"></div>
+<body>
 
-    <!-- ── SYSTEM CONFIG BAR ─────────────────────── -->
-    <div id="configBar" style="display:none; background:linear-gradient(135deg,#e8f5e9,#d4edda);
-         border:1px solid #28a745; border-radius:8px; padding:12px 18px;
-         margin-bottom:20px; flex-direction:row; justify-content:space-between;
-         align-items:center; flex-wrap:wrap; gap:10px;">
-      <div id="configSummary" style="font-size:13px; color:#155724; font-weight:600;"></div>
-      <a href="HEA_System_Config.html"
-         style="padding:7px 16px; background:white; border:1px solid #28a745;
-                border-radius:6px; color:#155724; font-size:13px; font-weight:700;
-                text-decoration:none; white-space:nowrap;">
-        ⚙️ Edit Setup
-      </a>
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="hdrEyebrow">Home energy analysis</div>
+    <h1 id="hdrTitle">Import</h1>
+    <div class="sub eyebrow" id="hdrSub">Logs and bill in · analysis out</div>
+  </header>
+
+  <!-- ══════════ IMPORT ══════════ -->
+  <section class="view on" id="v-import">
+
+    <div class="card">
+      <div class="stephd">
+        <div class="stepno" id="s1no">1</div>
+        <div class="t"><b>EG4 inverter logs</b><small>One file per week, one tab per day</small></div>
+      </div>
+      <label class="dz" id="dzLogs">
+        <svg viewBox="0 0 24 24"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        <b>Choose .xls or .xlsx files</b>
+        <small>Multiple files supported · nothing leaves your phone</small>
+        <input type="file" id="fLogs" accept=".xls,.xlsx" multiple>
+      </label>
+      <div class="chips" id="logChips"></div>
+      <div id="logSummary"></div>
     </div>
 
-    <!-- ── MISSING CONFIG WARNING — shows if config absent or incomplete ── -->
-    <div id="configWarning" style="display:none; background:#fff3cd; border:1px solid #ffc107;
-         border-left:5px solid #ffc107; border-radius:8px; padding:14px 18px;
-         margin-bottom:20px;">
-      <div style="font-weight:700; color:#856404; margin-bottom:6px;">
-        ⚠️ System Configuration Incomplete
+    <div class="card">
+      <div class="stephd">
+        <div class="stepno" id="s2no">2</div>
+        <div class="t"><b>Utility bill</b><small>Extract it, or type the seven numbers</small></div>
       </div>
-      <div style="font-size:13px; color:#856404; margin-bottom:10px;">
-        Your system specs are missing or incomplete. The System Specifications
-        section of your report will show default values until you complete setup.
-        Reports will still generate correctly — only the Specs section is affected.
+
+      <div class="seg" role="tablist">
+        <button class="on" data-pane="pdf" role="tab">PDF</button>
+        <button data-pane="text" role="tab">Paste</button>
+        <button data-pane="manual" role="tab">Manual</button>
       </div>
-      <a href="HEA_System_Config.html"
-         style="display:inline-block; padding:8px 18px; background:#ffc107;
-                border:none; border-radius:6px; color:#212529; font-size:13px;
-                font-weight:700; text-decoration:none;">
-        Complete Setup Now →
-      </a>
-    </div>
-    <!-- ── END CONFIG BAR ────────────────────────── -->
-    
-    <div id="historyStatus" style="background:#e7f3ff; border:1px solid #667eea; border-radius:6px; padding:15px; margin-bottom:20px; display:none;">
-      <strong>📊 Historical Data:</strong> <span id="historyCount">0</span> months stored in browser
-      <span style="color:#6c757d; font-size:14px; margin-left:10px;">(enables month-over-month comparison)</span>
-    </div>
-    
-    <div id="uploadSection" class="upload-section">
-      <h2>1. Upload EG4 Log Files</h2>
-      <p>Click to select .xls/.xlsx files (multiple files & tabs supported)</p>
-      <p id="fileCount" style="margin-top:10px; font-weight:600;"></p>
-      <input type="file" id="fileInput" multiple accept=".xls,.xlsx">
-    </div>
-    
-    <div style="background:#f8f9fa; border:2px solid #667eea; border-radius:8px; padding:30px; margin-bottom:30px;">
-      <h2>2. <span id="utilityLabel">Utility</span> Bill Data</h2>
-      
-      <div style="margin-bottom:20px;">
-        <label style="font-weight:600; display:block; margin-bottom:10px;">Option 1: Paste <span class="utilityLabelInline">Utility</span> Bill Text</label>
-        <textarea id="billPaste" placeholder="Paste bill text here..." style="width:100%; height:150px; padding:12px; border:1px solid #ced4da; border-radius:6px; font-size:14px; font-family:monospace;"></textarea>
-        <button onclick="parseBillText()" style="margin-top:10px; padding:10px 20px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
-          Auto-Extract from Text
-        </button>
+
+      <div class="pane on" id="p-pdf">
+        <label class="dz" id="dzBill">
+          <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5"/></svg>
+          <b>Choose bill PDF</b>
+          <small>Text is read in-browser and matched to Pepco's layout</small>
+          <input type="file" id="fBill" accept=".pdf">
+        </label>
+        <p class="note" style="margin-top:9px">Scanned bills have no text layer — those need Paste or Manual. Whatever is extracted also lands in the Paste tab so you can see what the parser saw.</p>
+        <div class="chips" id="billChips"></div>
       </div>
-      
-      <div style="text-align:center; margin:20px 0; color:#6c757d; font-weight:600;">— OR —</div>
-      
-      <div style="margin-bottom:20px;">
-        <label style="font-weight:600; display:block; margin-bottom:10px;">Option 2: Upload <span class="utilityLabelInline">Utility</span> Bill PDF</label>
-        <div class="upload-section" id="pdfUploadSection" style="padding:20px;">
-          <p>Click to select PDF file</p>
-          <p id="pdfFileName" style="margin-top:10px; font-weight:600;"></p>
-          <input type="file" id="pdfInput" accept=".pdf">
+
+      <div class="pane" id="p-text">
+        <textarea id="billText" placeholder="Paste the bill text here — meter table through the taxes section."></textarea>
+        <button class="btn sm" id="btnParseText" style="margin-top:9px">Extract from text</button>
+      </div>
+
+      <div class="pane" id="p-manual">
+        <p class="note">Fill these from the bill. Fields the extractor filled are outlined in teal — check them.</p>
+      </div>
+
+      <div class="fields" id="billFields">
+        <div class="f"><label for="bStart">Start date</label><input type="date" id="bStart"></div>
+        <div class="f"><label for="bEnd">End date</label><input type="date" id="bEnd"></div>
+        <div class="f"><label for="bTotal">Total kWh</label><input type="number" id="bTotal" inputmode="decimal"></div>
+        <div class="f"><label for="bPeak">On-peak kWh</label><input type="number" id="bPeak" inputmode="decimal"></div>
+        <div class="f"><label for="bOff">Off-peak kWh</label><input type="number" id="bOff" inputmode="decimal"></div>
+        <div class="f"><label for="bSupply">Supply $</label><input type="number" id="bSupply" step="0.01" inputmode="decimal"></div>
+        <div class="f"><label for="bDeliv">Delivery $</label><input type="number" id="bDeliv" step="0.01" inputmode="decimal"></div>
+        <div class="f"><label for="bTax">Taxes $</label><input type="number" id="bTax" step="0.01" inputmode="decimal"></div>
+        <div class="f wide"><label for="bCost">Service period total $</label><input type="number" id="bCost" step="0.01" inputmode="decimal"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="stephd">
+        <div class="stepno" id="s3no">3</div>
+        <div class="t"><b>Off-meter solar <span style="color:var(--muted);font-weight:400">— optional</span></b><small>Solar the EG4 and meter don't see (Victron / Delta 2 Max)</small></div>
+      </div>
+      <div class="fields">
+        <div class="f wide"><label for="bSolar">Solar for this period (kWh)</label><input type="number" id="bSolar" step="0.1" inputmode="decimal" placeholder="e.g. 46"></div>
+      </div>
+      <p class="note">From Home Assistant or your MPPT app. It doesn't change the Pepco bill — it's energy you'd otherwise have pulled, so it counts as avoided cost and lifts your self-sufficiency figure. Leave blank until the Victron is logging on its own.</p>
+    </div>
+
+    <button class="btn primary" id="btnGen" disabled>Generate analysis</button>
+    <div class="btnrow">
+      <button class="btn ghost" id="btnSample">Load demo data</button>
+      <button class="btn ghost" id="btnExport" disabled>Export report</button>
+    </div>
+
+    <div class="card" style="margin-top:12px" id="histCard" hidden>
+      <h2>Saved months</h2>
+      <p class="note">Kept in this browser only. Nothing is uploaded.</p>
+      <div class="rows" id="histList"></div>
+    </div>
+
+    <div class="card">
+      <h2>How the two sources are used</h2>
+      <p class="note">The bill decides money — its kWh split and dollar totals drive every cost figure. The logs decide behaviour — when you drew power, what the battery did. Where they disagree, that gap is shown rather than smoothed over.</p>
+    </div>
+  </section>
+
+  <!-- ══════════ CYCLE ══════════ -->
+  <section class="view" id="v-cycle">
+    <div id="cycleEmpty" class="empty">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      <b>No analysis yet</b>
+      <p>Import your logs and bill to see when power actually moved.</p>
+      <button class="btn primary" data-goto="import">Go to import</button>
+    </div>
+    <div id="cycleBody" hidden>
+      <div class="card" style="padding-bottom:14px">
+        <div class="dialwrap">
+          <svg id="dial" viewBox="0 0 320 320" role="img" aria-label="Average grid draw by hour of day"></svg>
+          <div class="dialcenter">
+            <div class="big" id="dialBig">—</div>
+            <div class="cap" id="dialCap">kW average draw<br>during peak hours</div>
+          </div>
         </div>
-        <button onclick="parseBillPdf()" style="margin-top:10px; padding:10px 20px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:600;">
-          Auto-Extract from PDF
-        </button>
-      </div>
-      
-      <div style="text-align:center; margin:20px 0; color:#6c757d; font-weight:600;">— OR —</div>
-      
-      <div>
-        <label style="font-weight:600; display:block; margin-bottom:15px;">Option 3: Manual Entry</label>
-        <div class="bill-inputs">
-          <div class="input-group"><label>Start Date</label><input type="date" id="startDate"></div>
-          <div class="input-group"><label>End Date</label><input type="date" id="endDate"></div>
-          <div class="input-group"><label>Total kWh</label><input type="number" step="0.01" id="totalKwh"></div>
-          <div class="input-group"><label>Peak kWh</label><input type="number" step="0.01" id="peakKwh"></div>
-          <div class="input-group"><label>Off-Peak kWh</label><input type="number" step="0.01" id="offpeakKwh"></div>
-          <div class="input-group"><label>Total Cost ($)</label><input type="number" step="0.01" id="totalCost"></div>
-          <div class="input-group"><label>Supply Cost ($)</label><input type="number" step="0.01" id="supplyCost"></div>
-          <div class="input-group"><label>Delivery Cost ($)</label><input type="number" step="0.01" id="deliveryCost"></div>
+        <div class="legend">
+          <div class="lg"><i class="dot" style="background:var(--peak)"></i><span id="lgPeak">Peak</span></div>
+          <div class="lg"><i class="dot" style="background:var(--off)"></i>Off-peak</div>
         </div>
       </div>
+      <div class="stats" id="cycleStats"></div>
+      <div class="card"><h2 id="shapeTitle">Reading the shape</h2><p class="note" id="shapeNote"></p></div>
+      <div class="card">
+        <h2>Daily grid draw</h2>
+        <p class="note">Tap a day. Bars stack draw-to-load over battery charging.</p>
+        <div class="strip" id="strip"></div>
+        <div class="striplbl"><span class="eyebrow" id="stripA"></span><span class="eyebrow" id="stripB"></span></div>
+        <div class="dayread" id="dayread"></div>
+      </div>
     </div>
-    
-    <button class="btn btn-primary" id="generateBtn" onclick="generateReport()" disabled>
-      Generate Complete HEA Report
-    </button>
-    
-    <button class="btn btn-clear" onclick="clearData()">
-      Clear Form Data (Keep History)
-    </button>
-    
-    <button class="btn btn-clear" onclick="clearHistoricalData()" style="background:#6c757d;">
-      🗑️ Delete Historical Data (Permanent)
-    </button>
-  </div>
+  </section>
+
+  <!-- ══════════ FLOW ══════════ -->
+  <section class="view" id="v-flow">
+    <div id="flowEmpty" class="empty">
+      <svg viewBox="0 0 24 24"><path d="M4 6h7a5 5 0 015 5v7"/><path d="M4 12h4"/><path d="M4 18h4"/><circle cx="19" cy="19" r="2"/></svg>
+      <b>Nothing to reconcile yet</b>
+      <p>Once both sources are in, every metered kWh gets traced.</p>
+      <button class="btn primary" data-goto="import">Go to import</button>
+    </div>
+    <div id="flowBody" hidden></div>
+  </section>
+
+  <!-- ══════════ MODEL ══════════ -->
+  <section class="view" id="v-model">
+    <div id="modelEmpty" class="empty">
+      <svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-6"/></svg>
+      <b>No rates loaded</b>
+      <p>The model reads its rates from your bill, then lets you test alternatives.</p>
+      <button class="btn primary" data-goto="import">Go to import</button>
+    </div>
+    <div id="modelBody" hidden>
+      <div class="card">
+        <h2>What if you switched to flat rate?</h2>
+        <p class="note">Starts from the imported bill. Move the sliders to test other months.</p>
+        <div style="margin-top:16px">
+          <div class="ctl">
+            <div class="top"><label for="sKwh">Monthly usage</label><span class="val" id="lKwh">—</span></div>
+            <input type="range" id="sKwh" min="100" max="2000" step="1" value="800">
+          </div>
+          <div class="ctl" style="margin-bottom:4px">
+            <div class="top"><label for="sPeak">Share landing on-peak</label><span class="val" id="lPeak">—</span></div>
+            <input type="range" id="sPeak" min="0" max="40" step="0.01" value="5">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Rates</h2>
+        <p class="note" id="rateSrc"></p>
+        <div style="margin-top:8px">
+          <div class="numin"><div class="nl">TOU generation, on-peak</div><input type="number" id="rGenOn" step="0.00001" inputmode="decimal"></div>
+          <div class="numin"><div class="nl">TOU generation, off-peak</div><input type="number" id="rGenOff" step="0.00001" inputmode="decimal"></div>
+          <div class="numin"><div class="nl">TOU distribution, on-peak</div><input type="number" id="rDistOn" step="0.00001" inputmode="decimal"></div>
+          <div class="numin"><div class="nl">TOU distribution, off-peak</div><input type="number" id="rDistOff" step="0.00001" inputmode="decimal"></div>
+          <div class="numin"><div class="nl">Flat generation<small>SOS price to compare</small></div><input type="number" id="rFlatGen" step="0.00001" value="0.12936" inputmode="decimal"></div>
+          <div class="numin"><div class="nl">Flat distribution<small>estimate — replace with Schedule R</small></div><input type="number" id="rFlatDist" step="0.00001" value="0.06158" inputmode="decimal"></div>
+        </div>
+        <div class="toggle">
+          <div class="nl" style="font-size:12.5px">Keep the bill credit on flat rate?<small style="display:block;font-size:10.5px;color:var(--dim);margin-top:2px">Applies to both plans when on</small></div>
+          <button class="tg" id="tgEw" role="switch" aria-checked="true" aria-label="Keep credit on flat rate"></button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Result</h2>
+        <div class="vs">
+          <div class="vcard" id="cTou"><div class="vt">Time-of-use</div><div class="vv" id="vTou">—</div></div>
+          <div class="vcard" id="cFlat"><div class="vt">Flat rate</div><div class="vv" id="vFlat">—</div></div>
+        </div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ REPORT ══════════ -->
+  <section class="view" id="v-report">
+    <div id="reportEmpty" class="empty">
+      <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h4"/></svg>
+      <b>No report yet</b>
+      <p>Import your logs and bill, generate, and the full detailed report appears here.</p>
+      <button class="btn primary" data-goto="import">Go to import</button>
+    </div>
+    <div id="reportBody" hidden>
+      <div class="btnrow" style="margin-bottom:14px">
+        <button class="btn primary" id="btnPrint">Print / Save PDF</button>
+        <button class="btn ghost" id="btnExport2">Download HTML</button>
+      </div>
+      <div id="reportMount" class="rptframe"></div>
+    </div>
+  </section>
+
+  <footer><div class="eyebrow" style="color:var(--dim)" id="footNote">HEA v7 · runs entirely on your device</div></footer>
 </div>
 
+<nav>
+  <div class="navin">
+    <button class="tab on" data-v="import"><svg viewBox="0 0 24 24"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg><span>Import</span></button>
+    <button class="tab locked" data-v="cycle"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Cycle</span></button>
+    <button class="tab locked" data-v="flow"><svg viewBox="0 0 24 24"><path d="M4 6h7a5 5 0 015 5v7"/><path d="M4 12h4"/><path d="M4 18h4"/><circle cx="19" cy="19" r="2"/></svg><span>Flow</span></button>
+    <button class="tab locked" data-v="model"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-6"/></svg><span>Model</span></button>
+    <button class="tab locked" data-v="report"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h4"/></svg><span>Report</span></button>
+  </div>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
- (function(a,l){const L=a();while(!![]){try{const h=-parseInt(hea_h(0x7))/0x1+parseInt(hea_h(0x2))/0x2+-parseInt(hea_h(0x1))/0x3*(-parseInt(hea_h(0x3))/0x4)+-parseInt(hea_h(0x6))/0x5+parseInt(hea_h(0x0))/0x6+parseInt(hea_h(0x5))/0x7+-parseInt(hea_h(0x4))/0x8;if(h===l)break;else L['push'](L['shift']());}catch(Y){L['push'](L['shift']());}}}(hea_L,0xde77f));const hea_l=(function(){let a=!![];return function(l,L){const h=a?function(){if(L){const Y=L['apply'](l,arguments);return L=null,Y;}}:function(){};return a=![],h;};}()),hea_a=hea_l(this,function(){return hea_a['toString']()['search']('(((.+)+)+)+$')['toString']()['constructor'](hea_a)['search']('(((.+)+)+)+$');});hea_a(),pdfjsLib['GlobalWorkerOptions']['workerSrc']='pdf.worker.min.js';let eg4Data=[];const THRESHOLDS={'efficiency_critical':0x55,'efficiency_warning':0x3,'peak_coverage_critical':0x5a,'peak_coverage_warning':0x32,'solar_critical':0xf,'solar_warning':0x19,'cost_critical':0xf,'cost_warning':0xf,'missed_slot_cost_threshold':1.5};function showStatus(a,l){const L=document['getElementById']('status');L['textContent']=a,L['className']='status\x20'+l,L['style']['display']='block';}function clearData(){document['querySelectorAll']('input,\x20textarea')['forEach'](a=>a['value']=''),eg4Data=[],document['getElementById']('fileCount')['textContent']='',document['getElementById']('pdfFileName')['textContent']='',document['getElementById']('uploadSection')['classList']['remove']('active'),document['getElementById']('pdfUploadSection')['classList']['remove']('active'),document['getElementById']('generateBtn')['disabled']=!![],showStatus('Form\x20data\x20cleared.\x20Historical\x20data\x20preserved.','success');}function clearAll(){clearData(),updateHistoryDisplay(),loadConfigBar();}function isConfigComplete(a){return a&&a['inverterBrand']&&a['batteryBrand']&&a['utility']&&a['s1EveStart']&&a['s1EveEnd']&&a['configVersion'];}function loadConfigBar(){const a=localStorage['getItem']('hea_config'),l=document['getElementById']('configBar'),L=document['getElementById']('configSummary'),h=document['getElementById']('configWarning');if(!a){if(l)l['style']['display']='none';if(h)h['style']['display']='block';return;}let Y={};try{Y=JSON['parse'](a);}catch(G){if(l)l['style']['display']='none';if(h)h['style']['display']='block';return;}if(!isConfigComplete(Y)){if(h)h['style']['display']='block';}else{if(h)h['style']['display']='none';}if(!l||!L)return;const C=((Y['inverterCount']||0x1)*(Y['inverterKwEach']||0x6))['toFixed'](0x1),A=((Y['batteryCount']||0x1)*(Y['batteryKwhEach']||5.12))['toFixed'](0x2),x=F=>{if(!F||F==='none')return null;const J=parseInt(F);return J<0xc?J+'AM':J===0xc?'12PM':J-0xc+'PM';};let B='';if(x(Y['s1MornStart']))B+=x(Y['s1MornStart'])+'–'+x(Y['s1MornEnd'])+'\x20·\x20';if(x(Y['s1EveStart']))B+=x(Y['s1EveStart'])+'–'+x(Y['s1EveEnd']);const D=(Y['peakDays']||[])['length'],Z=D===0x7?'All\x20Days':D===0x5?'Weekdays':D>0x0?D+'d/wk':'Days\x20not\x20set',j=B||'⚠️\x20TOU\x20not\x20configured',b=!isConfigComplete(Y)?'\x20&nbsp;<span\x20style=\x22color:#856404;\x20font-size:11px;\x20font-weight:400;\x22>(incomplete\x20—\x20click\x20Edit\x20Setup)</span>':'';L['innerHTML']='⚡\x20<strong>'+(Y['inverterBrand']||'EG4')+'\x20'+(Y['inverterModel']||'6000XP')+'\x20×\x20'+(Y['inverterCount']||0x1)+'</strong>\x20('+C+'\x20kW)&nbsp;&nbsp;|&nbsp;&nbsp;'+('🔋\x20<strong>'+(Y['batteryBrand']||'Battery')+'\x20×\x20'+(Y['batteryCount']||0x1)+'</strong>\x20('+A+'\x20kWh)&nbsp;&nbsp;|&nbsp;&nbsp;')+('🏢\x20<strong>'+(Y['utility']||'Not\x20set')+'</strong>&nbsp;&nbsp;|&nbsp;&nbsp;')+('⏰\x20<strong>'+j+'</strong>\x20'+Z+b),l['style']['display']='flex';const q=Y['utility']||'Utility',n=document['getElementById']('utilityLabel');if(n)n['textContent']=q;document['querySelectorAll']('.utilityLabelInline')['forEach'](F=>F['textContent']=q);}function initApp(){const a=localStorage['getItem']('hea_config');if(!a){window['location']['href']='HEA_System_Config.html';return;}clearAll();}function updateHistoryDisplay(){const a=loadHistoricalData(),l=document['getElementById']('historyCount'),L=document['getElementById']('historyStatus');a['length']>0x0?(l['textContent']=a['length'],L['style']['display']='block'):L['style']['display']='none';}function clearHistoricalData(){confirm('⚠️\x20WARNING:\x20This\x20will\x20permanently\x20delete\x20all\x20historical\x20comparison\x20data.\x5cn\x5cnYou\x20will\x20lose\x20all\x20month-over-month\x20tracking.\x5cn\x5cnAre\x20you\x20sure?')&&(localStorage['removeItem']('hea_historical_data'),updateHistoryDisplay(),showStatus('Historical\x20data\x20permanently\x20deleted.\x20Starting\x20fresh.','success'));}window['addEventListener']('DOMContentLoaded',updateHistoryDisplay);function loadHistoricalData(){try{const a=localStorage['getItem']('hea_historical_data');return a?JSON['parse'](a):[];}catch(l){return console['error']('Error\x20loading\x20historical\x20data:',l),[];}}function hea_L(){const ae=['ntG4odC5nw1YEfPeCG','nZq5mdeWuxrVB3LA','nJa2oteWoerkuvLXCq','ntfAzfrOse0','mJu2nty1nffXCKfWAa','mtyWotq4CKTXsfDy','mtm0mZi3ntjnwez5vNi','mta3nZeWndbPzhPgAKm'];hea_L=function(){return ae;};return hea_L();}function saveHistoricalData(a){try{let l=loadHistoricalData();const L=l['findIndex'](h=>h['startDate']===a['startDate']&&h['endDate']===a['endDate']);return L>=0x0?(console['log']('⚠️\x20Duplicate\x20period\x20detected:\x20'+a['startDate']+'\x20to\x20'+a['endDate']),console['log']('Updating\x20existing\x20entry\x20instead\x20of\x20creating\x20duplicate.'),l[L]=a,localStorage['setItem']('hea_historical_data',JSON['stringify'](l)),'updated'):(console['log']('✅\x20New\x20period\x20saved:\x20'+a['startDate']+'\x20to\x20'+a['endDate']),l['push'](a),l=l['slice'](-0xc),localStorage['setItem']('hea_historical_data',JSON['stringify'](l)),'added');}catch(h){return console['error']('Error\x20saving\x20historical\x20data:',h),![];}}document['getElementById']('fileInput')['addEventListener']('change',function(a){const l=a['target']['files'];if(l['length']===0x0)return;showStatus('Processing\x20'+l['length']+'\x20file(s)...','success'),eg4Data=[];let L=0x0;Array['from'](l)['forEach'](h=>{const Y=new FileReader();Y['onload']=function(C){try{const A=new Uint8Array(C['target']['result']),x=XLSX['read'](A,{'type':'array'});x['SheetNames']['forEach'](B=>{const D=x['Sheets'][B],Z=XLSX['utils']['sheet_to_json'](D);eg4Data=eg4Data['concat'](Z);}),L++,L===l['length']&&(document['getElementById']('uploadSection')['classList']['add']('active'),document['getElementById']('fileCount')['textContent']='✓\x20Loaded\x20'+eg4Data['length']+'\x20log\x20entries\x20from\x20'+l['length']+'\x20file(s)',showStatus('Successfully\x20loaded\x20'+eg4Data['length']+'\x20log\x20entries!','success'),checkReady());}catch(B){showStatus('Error\x20reading\x20file:\x20'+B['message'],'error');}},Y['readAsArrayBuffer'](h);});}),document['getElementById']('pdfInput')['addEventListener']('change',function(a){a['target']['files']['length']>0x0&&(document['getElementById']('pdfFileName')['textContent']='✓\x20'+a['target']['files'][0x0]['name'],document['getElementById']('pdfUploadSection')['classList']['add']('active'));});function parseBillText(){let a=document['getElementById']('billPaste')['value'];a=a['replace'](/[\u00a0\u2000-\u200a\u202f\u205f\u3000]/g,' ');if(!a['trim']())return showStatus('Paste\x20bill\x20text\x20first','error');const l=parseFloat(a['match'](/Total\s+Use\s*\(kWh\)[:\s]+(\d+)/i)?.[0x1]||a['match'](/Total\s+use-?kWh\s+(\d+)/i)?.[0x1]||a['match'](/Total\s+Usage\s+(\d+)/i)?.[0x1]||0x0),L=parseFloat(a['match'](/On[\s-]+Peak\s+Energy\s+(\d+)\s+kWh/i)?.[0x1]||a['match'](/On-Peak\s+Use\s*\(kWh\)[^\d]{0,80}(\d+)/i)?.[0x1]||a['match'](/On-Peak\s+(?:Energy|Use(?:age)?)\s+(?:\(kWh\))?\s*(?:Feb|Jan|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)?\s*\d*\s*(?:Jan|Feb|Mar|Apr|May|June|July|Aug|Sep|Oct|Nov|Dec)?\s*\d*\s*\d*\s*(\d+)/i)?.[0x1]||0x0),h=parseFloat(a['match'](/Off[\s-]+Peak\s+Energy\s+(\d+)\s+kWh/i)?.[0x1]||a['match'](/Off-Peak\s+Usage\s*\(kWh\)[^\d]{0,80}(\d+)/i)?.[0x1]||a['match'](/Off-Peak\s+(?:Energy|Usage)\s+(?:\(kWh\))?\s*(?:Feb|Jan|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)?\s*\d*\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)?\s*\d*\s*\d*\s*(\d+)/i)?.[0x1]||0x0);let Y=0x0;const C=a['match'](/Total\s+Electric\s+Charges[^\d\$]*\$?\s*([\d,]+\.?\d*)/i);if(C)Y=parseFloat(C[0x1]['replace'](/,/g,''));else{const b=a['match'](/Service\s+Period\s+Total[^\d\$]*\$?\s*([\d,]+\.?\d*)/i)||a['match'](/Amount\s+Due[^\d\$]*\$?\s*([\d,]+\.?\d*)/i)||a['match'](/Total\s+Amount\s+Due[^\d\$]*\$?\s*([\d,]+\.?\d*)/i);Y=b?parseFloat(b[0x1]['replace'](/,/g,'')):0x0;}const A=a['match'](/Electric\s+Supply\s+\$?([\d,]+\.?\d*)/i)||a['match'](/Total\s+Electric\s+Supply\s+Charges[^\d\$]*\$?\s*([\d,]+\.?\d*)/i)||a['match'](/Supply\s+Charges?[^\d\$]*\$?\s*([\d,]+\.?\d*)/i),x=A?parseFloat(A[0x1]['replace'](/,/g,'')):0x0,B=a['match'](/Electric\s+Delivery\s+\$?([\d,]+\.?\d*)/i)||a['match'](/Total\s+Electric\s+Delivery\s+Charges[^\d\$]*\$?\s*([\d,]+\.?\d*)/i)||a['match'](/Delivery\s+Charges?[^\d\$]*\$?\s*([\d,]+\.?\d*)/i),D=B?parseFloat(B[0x1]['replace'](/,/g,'')):0x0;let e=null,Z=null;const j=a['match'](/Billing\s+Period[:\s]+(\d{1,2})-(\d{1,2})-(\d{4})\s+to\s+(\d{1,2})-(\d{1,2})-(\d{4})/i);j&&(e=j[0x1]+'/'+j[0x2]+'/'+j[0x3],Z=j[0x4]+'/'+j[0x5]+'/'+j[0x6]);if(!e){const q=a['match'](/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\s+to\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})/i);if(q){const n={'january':0x1,'february':0x2,'march':0x3,'april':0x4,'may':0x5,'june':0x6,'july':0x7,'august':0x8,'september':0x9,'october':0xa,'november':0xb,'december':0xc},G=n[q[0x1]['toLowerCase']()],F=n[q[0x4]['toLowerCase']()];e=G+'/'+q[0x2]+'/'+q[0x3],Z=F+'/'+q[0x5]+'/'+q[0x6];}}if(!e){const J=a['match'](/(\d{1,2}\/\d{1,2}\/\d{4})\s+to\s+(\d{1,2}\/\d{1,2}\/\d{4})/i);J&&(e=J[0x1],Z=J[0x2]);if(!e){const sf=a['match'](/SERVICE\s+FROM\s+(\d{1,2})\/(\d{1,2})\/(\d{2})\s+TO\s+(\d{1,2})\/(\d{1,2})\/(\d{2})/i);if(sf){e=sf[0x1]+'/'+sf[0x2]+'/20'+sf[0x3];Z=sf[0x4]+'/'+sf[0x5]+'/20'+sf[0x6];}}if(!e){const abm=a['match'](/Billing\s+Period[:\s]+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(\d{1,2}),?\s+(\d{4})\s+to\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(\d{1,2}),?\s+(\d{4})/i);if(abm){const am={'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12};const m1=am[abm[0x1]['toLowerCase']()['slice'](0,3)];const m2=am[abm[0x4]['toLowerCase']()['slice'](0,3)];e=m1+'/'+abm[0x2]+'/'+abm[0x3];Z=m2+'/'+abm[0x5]+'/'+abm[0x6];}}}if(e)document['getElementById']('startDate')['value']=formatDate(e);if(Z)document['getElementById']('endDate')['value']=formatDate(Z);document['getElementById']('totalKwh')['value']=l||'',document['getElementById']('peakKwh')['value']=L||'',document['getElementById']('offpeakKwh')['value']=h||'',document['getElementById']('totalCost')['value']=Y['toFixed'](0x2)||'',document['getElementById']('supplyCost')['value']=x['toFixed'](0x2)||'',document['getElementById']('deliveryCost')['value']=D['toFixed'](0x2)||'',showStatus('Bill\x20extracted!\x20Fields\x20populated.','success'),checkReady();}function formatDate(a){const l=a['split']('/');if(l['length']!==0x3)return'';const L=l[0x0]['padStart'](0x2,'0'),h=l[0x1]['padStart'](0x2,'0'),Y=l[0x2];return Y+'-'+L+'-'+h;}async function parseBillPdf(){const a=document['getElementById']('pdfInput')['files'][0x0];if(!a)return showStatus('Upload\x20PDF\x20first','error');showStatus('Extracting\x20PDF...','success');const l=new FileReader();l['onload']=async L=>{try{const h=new Uint8Array(L['target']['result']),Y=await pdfjsLib['getDocument'](h)['promise'];let C='';for(let A=0x1;A<=Y['numPages'];A++){const x=await Y['getPage'](A),B=await x['getTextContent']();C+=B['items']['map'](D=>D['str'])['join']('\x20')+'\x0a';}document['getElementById']('billPaste')['value']=C,parseBillText();}catch(D){showStatus('PDF\x20error:\x20'+D['message'],'error');}},l['readAsArrayBuffer'](a);}function hea_h(a,l){a=a-0x0;const L=hea_L();let h=L[a];if(hea_h['wSxfUw']===undefined){var Y=function(B){const D='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=';let e='',Z='',j=e+Y;for(let b=0x0,q,n,G=0x0;n=B['charAt'](G++);~n&&(q=b%0x4?q*0x40+n:n,b++%0x4)?e+=j['charCodeAt'](G+0xa)-0xa!==0x0?String['fromCharCode'](0xff&q>>(-0x2*b&0x6)):b:0x0){n=D['indexOf'](n);}for(let F=0x0,J=e['length'];F<J;F++){Z+='%'+('00'+e['charCodeAt'](F)['toString'](0x10))['slice'](-0x2);}return decodeURIComponent(Z);};hea_h['ZcitgJ']=Y,hea_h['GxIrJW']={},hea_h['wSxfUw']=!![];}const C=L[0x0],A=a+C,x=hea_h['GxIrJW'][A];if(!x){const B=function(D){this['SesIVS']=D,this['nXbYEV']=[0x1,0x0,0x0],this['xMfLJU']=function(){return'newState';},this['sOIzud']='\x5cw+\x20*\x5c(\x5c)\x20*{\x5cw+\x20*',this['AERizf']='[\x27|\x22].+[\x27|\x22];?\x20*}';};B['prototype']['XStsfN']=function(){const D=new RegExp(this['sOIzud']+this['AERizf']),e=D['test'](this['xMfLJU']['toString']())?--this['nXbYEV'][0x1]:--this['nXbYEV'][0x0];return this['joZvNj'](e);},B['prototype']['joZvNj']=function(D){if(!Boolean(~D))return D;return this['wuSxho'](this['SesIVS']);},B['prototype']['wuSxho']=function(D){for(let e=0x0,Z=this['nXbYEV']['length'];e<Z;e++){this['nXbYEV']['push'](Math['round'](Math['random']())),Z=this['nXbYEV']['length'];}return D(this['nXbYEV'][0x0]);},new B(hea_h)['XStsfN'](),h=hea_h['ZcitgJ'](h),hea_h['GxIrJW'][A]=h;}else h=x;return h;}function updateOnlineStatus(){const a=document['getElementById']('offlineIndicator');a&&(a['style']['display']=navigator['onLine']?'none':'block');}window['addEventListener']('online',updateOnlineStatus),window['addEventListener']('offline',updateOnlineStatus),window['addEventListener']('load',updateOnlineStatus);function installApp(){window['deferredPrompt']?window['deferredPrompt']['prompt']():alert('📱\x20To\x20install\x20on\x20iPhone/iPad:\x0a\x0a1.\x20Tap\x20the\x20Share\x20button\x20(box\x20with\x20arrow)\x0a2.\x20Scroll\x20down\x20and\x20tap\x20\x22Add\x20to\x20Home\x20Screen\x22\x0a3.\x20Tap\x20\x22Add\x22\x20to\x20confirm\x0a\x0aThe\x20app\x20will\x20appear\x20on\x20your\x20home\x20screen!');}function checkReady(){const a=eg4Data['length']>0x0,l=document['getElementById']('totalKwh')['value']&&document['getElementById']('totalCost')['value'];document['getElementById']('generateBtn')['disabled']=!(a&&l);}function analyzeLogs(a,l){const L=new Date(l['startDate']),h=new Date(l['endDate']),Y=Math['ceil']((h-L)/(0x3e8*0x3c*0x3c*0x18));let C=0x0,A=0x0,x=0x0,B=0x0,D=0x0,Z=0x0,j=0x0,b=0x0,q=0x0,n=0x0,G=0x0,F=null,J=0x0,X=null,N=0x0,s=0x0,o=0x64,d=0x0,O=0x0,K=0x0,T=0x0,_K=0x0,_d=0x0,_O=0x0;for(let R=0x0;R<a['length'];R++){const f=a[R],U=parseFloat(f['pCharge']||0x0),z=parseFloat(f['pDisCharge']||0x0),W=parseFloat(f['batterySOC']||f['SOC']||0x0),y=parseFloat(f['epsOutput']||f['pEps']||0x0);let p=null;const a0=f['Time']||f['sampleTime']||f['Timestamp'];if(a0)try{if(typeof a0==='string'){if(a0['includes']('/')){const a8=a0['split']('\x20'),a9=a8[0x0]['split']('/');const _yr=a9[0x0]['length']===0x4?parseInt(a9[0x0]):parseInt(a9[0x2]),_mo=a9[0x0]['length']===0x4?parseInt(a9[0x1])-0x1:parseInt(a9[0x0])-0x1,_dy=a9[0x0]['length']===0x4?parseInt(a9[0x2]):parseInt(a9[0x1]);p=new Date(_yr,_mo,_dy,a8[0x1]?parseInt(a8[0x1]['split'](':')[0x0]):0x0,a8[0x1]?parseInt(a8[0x1]['split'](':')[0x1]):0x0);}else p=new Date(a0);}else p=new Date(a0);}catch(aa){}const a1=p?p['getHours']():0x0,a2=p?p['getMinutes']():0x0,a3=p?p['getDay']():0x0,a4=0x4/0x3c,a5=U*a4/0x3e8,a6=z*a4/0x3e8;C+=a5,A+=a6,Z+=a6;if(W>0x0){if(W>s)s=W;if(W<o)o=W;}if(y>0x1770)T++;U<0xa?(X===null&&(X=p,d=W,K=0x0),N++,K+=a6,O=W):(N>J&&(J=N,F=X,_K=K,_d=d,_O=O),X=null,N=0x0);if(U>0x64&&a1>=0x6&&a1<=0x12&&a2>=0x1e&&a2<=0x46){x+=a5;if(R===0x0||parseFloat(a[R-0x1]['pCharge']||0x0)<0x64)D++;}else U>0x0&&(B+=a5);z<U&&(j+=(U-z)*a4/0x3e8);const a7=a3>=0x1&&a3<=0x5&&(a1>=0x6&&a1<0x9||a1>=0x11&&a1<0x15);a7&&(b++,z>0xa?(q++,n+=a6):G+=a5);}if(N>J){J=N;F=X;_K=K;_d=d;_O=O;}const P=l['totalKwh']-Z,w=C>0x0?A/C*0x64:0x0,S=l['totalKwh']>0x0?l['deliveryCost']/l['totalKwh']:0.0783,V=0.224+S,c=0.106+S,u=0.2107,g=l['totalKwh']*u,k=g-l['totalCost'],M=x*c,Q=b>0x0?q/b*0x64:0x0,I=b-q,t=n+G,m=t>0x0?n/t*0x64:0x0,H=I*(0x4/0x3c)*0.1*V,E=I*(0x4/0x3c)*0.5*V,v=J*(0x4/0x3c),r=v>0x0?_K/v*0x3e8:0x0;return{'days':Y,'totalCharged':C,'totalDischarged':A,'solarCharged':x,'gridCharged':B,'solarEvents':D,'efficiency':w,'inverterLoads':Z,'gridViaInverter':j,'bypassLoads':P,'peakSlotsTotal':b,'peakSlotsCovered':q,'peakCoverage':Q,'missedSlots':I,'inverterPeakEnergy':n,'gridPeakEnergy':G,'totalPeakEnergy':t,'batteryShareOfPeak':m,'deliveryRate':S,'peakAllIn':V,'offpeakAllIn':c,'flatRate':u,'flatTotal':g,'touSavings':k,'solarValue':M,'missedSlotCostLow':H,'missedSlotCostHigh':E,'longestNoChargeStart':F,'longestNoChargeDuration':J,'longestNoChargeHours':v,'maxSOC':s,'minSOC':o,'socAtNoChargeStart':_d,'socAtNoChargeEnd':_O,'totalDischargeDuringNoCharge':_K,'avgDischargePower':r,'epsOverloads':T};}function generateReport(){if(eg4Data['length']===0x0)return showStatus('Upload\x20log\x20files\x20first','error');const a={'startDate':document['getElementById']('startDate')['value']||'N/A','endDate':document['getElementById']('endDate')['value']||'N/A','totalKwh':parseFloat(document['getElementById']('totalKwh')['value'])||0x0,'peakKwh':parseFloat(document['getElementById']('peakKwh')['value'])||0x0,'offpeakKwh':parseFloat(document['getElementById']('offpeakKwh')['value'])||0x0,'totalCost':parseFloat(document['getElementById']('totalCost')['value'])||0x0,'supplyCost':parseFloat(document['getElementById']('supplyCost')['value'])||0x0,'deliveryCost':parseFloat(document['getElementById']('deliveryCost')['value'])||0x0},l=analyzeLogs(eg4Data,a),L=loadHistoricalData(),h={'startDate':a['startDate'],'endDate':a['endDate'],'totalKwh':a['totalKwh'],'totalCost':a['totalCost'],'efficiency':l['efficiency'],'peakCoverage':l['peakCoverage'],'touSavings':l['touSavings'],'solarCharged':l['solarCharged'],'totalCharged':l['totalCharged'],'peakSlotsTotal':l['peakSlotsTotal'],'peakSlotsCovered':l['peakSlotsCovered']},Y=saveHistoricalData(h);if(Y==='updated')console['log']('📝\x20Historical\x20data\x20updated\x20(duplicate\x20period\x20-\x20no\x20new\x20entry\x20created)');else Y==='added'&&console['log']('💾\x20New\x20historical\x20data\x20saved\x20successfully');updateHistoryDisplay();let C=l['touSavings']+l['solarValue'],A=[{'period':a['startDate']+'\x20to\x20'+a['endDate'],'savings':l['touSavings']+l['solarValue']}];const x=L['filter'](o=>!(o['startDate']===a['startDate']&&o['endDate']===a['endDate']));x['forEach'](o=>{C+=o['touSavings']||0x0,A['unshift']({'period':o['startDate']+'\x20to\x20'+o['endDate'],'savings':o['touSavings']||0x0});}),A=A['slice'](0x0,0x3);const B=(l['touSavings']+l['solarValue'])/l['days']*0x1e,D=a['totalKwh']/l['days'],e=l['inverterLoads']/a['totalKwh']*0x64,Z=l['gridViaInverter']/a['totalKwh']*0x64,j=l['bypassLoads']/a['totalKwh']*0x64,b=a['peakKwh']/a['totalKwh']*0x64,q=a['offpeakKwh']/a['totalKwh']*0x64,n=l['solarCharged']/l['totalCharged']*0x64,G=Math['round'](l['days']*0x5/0x7);let F='';const J=(l['missedSlotCostLow']+l['missedSlotCostHigh'])/0x2;J>=THRESHOLDS['missed_slot_cost_threshold']?F+='<div\x20style=\x22background:#fff3cd;\x20border-left:4px\x20solid\x20#ffc107;\x20padding:15px;\x20margin:10px\x200;\x20border-radius:4px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:600;\x20margin-bottom:5px;\x22>⚠️\x20Missed\x20Peak\x20Slot\x20Cost\x20Analysis:\x20'+l['missedSlots']+'\x20of\x20'+l['peakSlotsTotal']+'\x20slots\x20('+(l['missedSlots']/l['peakSlotsTotal']*0x64)['toFixed'](0x1)+'%),\x20estimated\x20cost\x20$'+l['missedSlotCostLow']['toFixed'](0x2)+'\x20-\x20$'+l['missedSlotCostHigh']['toFixed'](0x2)+'</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-size:14px;\x20color:#666;\x22>→\x20Alert\x20threshold\x20$'+THRESHOLDS['missed_slot_cost_threshold']['toFixed'](0x2)+';\x20Status:\x20REVIEW</div>\x0a\x20\x20\x20\x20\x20\x20</div>':F+='<div\x20style=\x22background:#d4edda;\x20border-left:4px\x20solid\x20#28a745;\x20padding:15px;\x20margin:10px\x200;\x20border-radius:4px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:600;\x20margin-bottom:5px;\x22>✅\x20Missed\x20Peak\x20Slot\x20Cost\x20Analysis:\x20'+l['missedSlots']+'\x20of\x20'+l['peakSlotsTotal']+'\x20slots\x20('+(l['missedSlots']/l['peakSlotsTotal']*0x64)['toFixed'](0x1)+'%),\x20estimated\x20cost\x20$'+l['missedSlotCostLow']['toFixed'](0x2)+'\x20-\x20$'+l['missedSlotCostHigh']['toFixed'](0x2)+'</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-size:14px;\x20color:#666;\x22>→\x20Alert\x20threshold\x20$'+THRESHOLDS['missed_slot_cost_threshold']['toFixed'](0x2)+';\x20Status:\x20OPTIMAL</div>\x0a\x20\x20\x20\x20\x20\x20</div>';l['epsOverloads']>0x0?F+='<div\x20style=\x22background:#f8d7da;\x20border-left:4px\x20solid\x20#f5c6cb;\x20padding:15px;\x20margin:10px\x200;\x20border-radius:4px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:600;\x20margin-bottom:5px;\x22>🔴\x20EPS\x20Overload\x20Monitor:\x20'+l['epsOverloads']+'\x20potential\x20overload\x20events\x20detected</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-size:14px;\x20color:#666;\x22>→\x20Inverter\x20exceeded\x20capacity\x20momentarily.\x20Review\x20load\x20distribution.</div>\x0a\x20\x20\x20\x20\x20\x20</div>':F+='<div\x20style=\x22background:#d4edda;\x20border-left:4px\x20solid\x20#28a745;\x20padding:15px;\x20margin:10px\x200;\x20border-radius:4px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:600;\x20margin-bottom:5px;\x22>✅\x20EPS\x20Overload\x20Monitor:\x20No\x20EPS\x20overloads\x20detected</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-size:14px;\x20color:#666;\x22>→\x20Inverter\x20operated\x20within\x20capacity</div>\x0a\x20\x20\x20\x20\x20\x20</div>';if(L['length']>0x0){const o=L[L['length']-0x1];if(l['efficiency']<THRESHOLDS['efficiency_critical'])F+='<div\x20style=\x22background:#f8d7da;\x20border-left:4px\x20solid\x20#f5c6cb;\x20padding:15px;\x20margin:10px\x200;\x20border-radius:4px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:600;\x20margin-bottom:5px;\x22>🔴\x20Battery\x20efficiency\x20at\x20'+l['efficiency']['toFixed'](0x1)+'%\x20(below\x20'+THRESHOLDS['efficiency_critical']+'%\x20threshold)</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-size:14px;\x20color:#666;\x22>→\x20Check\x20battery\x20connections\x20and\x20cell\x20balance.\x20May\x20need\x20maintenance.</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>';else o['efficiency']-l['efficiency']>=THRESHOLDS['efficiency_warning']&&(F+='<div\x20style=\x22background:#fff3cd;\x20border-left:4px\x20solid\x20#ffc107;\x20padding:15px;\x20margin:10px\x200;\x20border-radius:4px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:600;\x20margin-bottom:5px;\x22>⚠️\x20Efficiency\x20dropped\x20'+(o['efficiency']-l['efficiency'])['toFixed'](0x1)+'%\x20from\x20last\x20month</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-size:14px;\x20color:#666;\x22>→\x20Monitor\x20for\x20further\x20decline.\x20Check\x20for\x20loose\x20connections.</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>');}!F&&(F='<p\x20style=\x22color:#28a745;\x20font-weight:600;\x22>✅\x20All\x20systems\x20operating\x20within\x20normal\x20parameters.\x20No\x20action\x20needed.</p>');let X='';if(L['length']>0x0){const d=L[L['length']-0x1],O=l['efficiency']-d['efficiency'],K=l['peakCoverage']-d['peakCoverage'],T=l['touSavings']+l['solarValue']-(d['touSavings']||0x0);X='\x0a\x20\x20\x20\x20\x20\x20\x20\x20<h2>Historical\x20Comparison</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Comparing\x20current\x20month\x20vs\x20previous\x20month\x20to\x20track\x20performance\x20trends.</em></p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<table>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<th>Metric</th>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<th>Previous\x20Month</th>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<th>This\x20Month</th>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<th>Change</th>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>Battery\x20Efficiency</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>'+d['efficiency']['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>'+l['efficiency']['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:'+(O>=0x0?'#28a745':'#dc3545')+';\x20font-weight:600;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+(O>=0x0?'↑':'↓')+'\x20'+Math['abs'](O)['toFixed'](0x1)+'%\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>Peak\x20Coverage</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>'+d['peakCoverage']['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>'+l['peakCoverage']['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:'+(K>=0x0?'#28a745':'#dc3545')+';\x20font-weight:600;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+(K>=0x0?'↑':'↓')+'\x20'+Math['abs'](K)['toFixed'](0x1)+'%\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>Monthly\x20Savings</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>$'+(d['touSavings']||0x0)['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td>$'+(l['touSavings']+l['solarValue'])['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:'+(T>=0x0?'#28a745':'#dc3545')+';\x20font-weight:600;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+(T>=0x0?'↑':'↓')+'\x20$'+Math['abs'](T)['toFixed'](0x2)+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</td>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</table>\x0a\x20\x20\x20\x20\x20\x20';}let i='';if(l['longestNoChargeStart']){const P=new Date(l['longestNoChargeStart']['getTime']()+l['longestNoChargeHours']*0x3c*0x3c*0x3e8),w=l['maxSOC']-l['minSOC'],S=JSON['parse'](localStorage['getItem']('hea_config')||'{}'),V=(S['batteryCount']||0x2)*(S['batteryKwhEach']||5.12),c=w/0x64*V;i='\x0a\x20\x20\x20\x20\x20\x20\x20\x20<h2>8.\x20Discharge\x20Cycles</h2>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Analysis\x20of\x20the\x20longest\x20continuous\x20discharge\x20period\x20during\x20this\x20billing\x20cycle.</em></p>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<table>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr><th>Metric</th><th>Details</th></tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr><td>Longest\x20No-Recharge\x20Period</td><td>~'+Math['round'](l['longestNoChargeHours'])+'\x20hours\x20('+Math['round'](l['longestNoChargeHours']/0x18)+'\x20full\x20calendar\x20day'+(Math['round'](l['longestNoChargeHours']/0x18)===0x1?'':'s')+')</td></tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr><td>Dates</td><td>'+l['longestNoChargeStart']['toLocaleDateString']('en-US',{'month':'long','day':'numeric','year':'numeric'})+'\x20–\x20'+P['toLocaleDateString']('en-US',{'month':'long','day':'numeric','year':'numeric'})+'</td></tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr><td>Starting\x20SOC\x20(highest)</td><td>~'+l['maxSOC']['toFixed'](0x0)+'%</td></tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr><td>Ending\x20SOC\x20(lowest)</td><td>~'+l['minSOC']['toFixed'](0x0)+'%</td></tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr\x20class=\x22highlight\x22><td><strong>SOC\x20Drop</strong></td><td><strong>~'+w['toFixed'](0x0)+'%\x20(≈'+c['toFixed'](0x1)+'\x20kWh\x20from\x20'+V['toFixed'](0x2)+'\x20kWh\x20battery)</strong></td></tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr><td>Average\x20Discharge\x20Power</td><td>~'+l['avgDischargePower']['toFixed'](0x0)+'W\x20(very\x20light\x20load)</td></tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<tr><td>Explanation</td><td>Low-demand\x20period\x20(likely\x20weekend/holiday).\x20Battery\x20provided\x20'+c['toFixed'](0x1)+'\x20kWh\x20of\x20capacity\x20over\x20'+Math['round'](l['longestNoChargeHours'])+'\x20hours.\x20No\x20longer\x20continuous\x20no-charge\x20period\x20was\x20found\x20—\x20system\x20recharges\x20daily\x20or\x20every\x20other\x20day\x20from\x20cheap\x20off-peak\x20grid\x20power.</td></tr>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</table>\x0a\x20\x20\x20\x20\x20\x20';}const N='<!DOCTYPE\x20html>\x0a<html\x20lang=\x22en\x22>\x0a<head>\x0a\x20\x20<meta\x20charset=\x22UTF-8\x22>\x0a\x20\x20<meta\x20name=\x22viewport\x22\x20content=\x22width=device-width,\x20initial-scale=1.0,\x20maximum-scale=1.0\x22>\x0a\x20\x20<title>HEA\x20Report\x20-\x20'+a['startDate']+'\x20to\x20'+a['endDate']+'</title>\x0a\x20\x20<style>\x0a\x20\x20\x20\x20@media\x20print\x20{\x20\x0a\x20\x20\x20\x20\x20\x20body\x20{\x20margin:\x200;\x20padding:\x2020px;\x20}\x20\x0a\x20\x20\x20\x20\x20\x20.no-print\x20{\x20display:\x20none;\x20}\x0a\x20\x20\x20\x20\x20\x20@page\x20{\x20margin:\x201in;\x20}\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20body\x20{\x20\x0a\x20\x20\x20\x20\x20\x20font-family:\x20Arial,\x20\x27Segoe\x20UI\x27,\x20sans-serif;\x20\x0a\x20\x20\x20\x20\x20\x20line-height:\x201.5;\x20\x0a\x20\x20\x20\x20\x20\x20color:\x20#333;\x20\x0a\x20\x20\x20\x20\x20\x20max-width:\x201400px;\x20\x0a\x20\x20\x20\x20\x20\x20margin:\x200\x20auto;\x20\x0a\x20\x20\x20\x20\x20\x20padding:\x2010px;\x0a\x20\x20\x20\x20\x20\x20background:\x20#f5f5f5;\x0a\x20\x20\x20\x20\x20\x20font-size:\x2014px;\x0a\x20\x20\x20\x20\x20\x20box-sizing:\x20border-box;\x0a\x20\x20\x20\x20\x20\x20width:\x20100%;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20.report-container\x20{\x0a\x20\x20\x20\x20\x20\x20background:\x20white;\x0a\x20\x20\x20\x20\x20\x20padding:\x2015px;\x0a\x20\x20\x20\x20\x20\x20box-shadow:\x200\x202px\x2010px\x20rgba(0,0,0,0.1);\x0a\x20\x20\x20\x20\x20\x20width:\x20100%;\x0a\x20\x20\x20\x20\x20\x20box-sizing:\x20border-box;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20/*\x20──\x20MOBILE\x20RESPONSIVE\x20─────────────────────\x20*/\x0a\x20\x20\x20\x20@media\x20screen\x20and\x20(max-width:\x20768px)\x20{\x0a\x20\x20\x20\x20\x20\x20body\x20{\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20padding:\x205px;\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2013px;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20.report-container\x20{\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20padding:\x2012px\x208px;\x20\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20h1\x20{\x20font-size:\x2020px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20h2\x20{\x20font-size:\x2016px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20h3\x20{\x20font-size:\x2014px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20table\x20{\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2011px\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20display:\x20block;\x0a\x20\x20\x20\x20\x20\x20\x20\x20overflow-x:\x20auto;\x0a\x20\x20\x20\x20\x20\x20\x20\x20-webkit-overflow-scrolling:\x20touch;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20th,\x20td\x20{\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20padding:\x206px\x204px\x20!important;\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2011px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20/*\x20Stack\x20the\x204-box\x20executive\x20summary\x20grid\x20*/\x0a\x20\x20\x20\x20\x20\x20.exec-grid\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20grid-template-columns:\x20repeat(2,\x201fr)\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20gap:\x2010px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20.exec-grid\x20>\x20div\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20padding:\x2015px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20.exec-grid\x20.big-number\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2028px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20.btn\x20{\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20padding:\x208px\x2015px\x20!important;\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2013px\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20margin:\x204px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20.section\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20padding:\x2010px\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2012px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20ul\x20{\x20padding-left:\x2018px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20li\x20{\x20font-size:\x2012px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20p\x20{\x20font-size:\x2013px\x20!important;\x20}\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20@media\x20screen\x20and\x20(max-width:\x20480px)\x20{\x0a\x20\x20\x20\x20\x20\x20h1\x20{\x20font-size:\x2018px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20.exec-grid\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20grid-template-columns:\x20repeat(2,\x201fr)\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20.exec-grid\x20.big-number\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2024px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20table\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2010px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20th,\x20td\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20padding:\x205px\x203px\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2010px\x20!important;\x0a\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20h1\x20{\x20\x0a\x20\x20\x20\x20\x20\x20color:\x20#667eea;\x20\x0a\x20\x20\x20\x20\x20\x20text-align:\x20center;\x20\x0a\x20\x20\x20\x20\x20\x20font-size:\x2026px;\x0a\x20\x20\x20\x20\x20\x20margin-bottom:\x208px;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20.subtitle\x20{\x0a\x20\x20\x20\x20\x20\x20text-align:\x20center;\x0a\x20\x20\x20\x20\x20\x20color:\x20#6c757d;\x0a\x20\x20\x20\x20\x20\x20font-size:\x2015px;\x0a\x20\x20\x20\x20\x20\x20margin-bottom:\x2025px;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20h2\x20{\x20\x0a\x20\x20\x20\x20\x20\x20color:\x20#495057;\x20\x0a\x20\x20\x20\x20\x20\x20border-bottom:\x202px\x20solid\x20#667eea;\x20\x0a\x20\x20\x20\x20\x20\x20padding-bottom:\x208px;\x20\x0a\x20\x20\x20\x20\x20\x20margin-top:\x2030px;\x0a\x20\x20\x20\x20\x20\x20margin-bottom:\x2015px;\x0a\x20\x20\x20\x20\x20\x20font-size:\x2020px;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20h3\x20{\x0a\x20\x20\x20\x20\x20\x20color:\x20#495057;\x0a\x20\x20\x20\x20\x20\x20margin-top:\x2020px;\x0a\x20\x20\x20\x20\x20\x20margin-bottom:\x2012px;\x0a\x20\x20\x20\x20\x20\x20font-size:\x2017px;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20table\x20{\x20\x0a\x20\x20\x20\x20\x20\x20width:\x20100%;\x20\x0a\x20\x20\x20\x20\x20\x20border-collapse:\x20collapse;\x20\x0a\x20\x20\x20\x20\x20\x20margin:\x2015px\x200;\x0a\x20\x20\x20\x20\x20\x20box-shadow:\x200\x202px\x205px\x20rgba(0,0,0,0.05);\x0a\x20\x20\x20\x20\x20\x20font-size:\x2013px;\x0a\x20\x20\x20\x20\x20\x20table-layout:\x20auto;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20th\x20{\x20\x0a\x20\x20\x20\x20\x20\x20background:\x20#667eea;\x20\x0a\x20\x20\x20\x20\x20\x20color:\x20white;\x20\x0a\x20\x20\x20\x20\x20\x20padding:\x2010px;\x20\x0a\x20\x20\x20\x20\x20\x20text-align:\x20left;\x0a\x20\x20\x20\x20\x20\x20font-weight:\x20600;\x0a\x20\x20\x20\x20\x20\x20font-size:\x2013px;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20td\x20{\x20\x0a\x20\x20\x20\x20\x20\x20padding:\x209px;\x20\x0a\x20\x20\x20\x20\x20\x20border-bottom:\x201px\x20solid\x20#e9ecef;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20tr:hover\x20{\x20background:\x20#f8f9fa;\x20}\x0a\x20\x20\x20\x20.highlight\x20{\x20\x0a\x20\x20\x20\x20\x20\x20background:\x20#d4edda\x20!important;\x20\x0a\x20\x20\x20\x20\x20\x20font-weight:\x20600;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20.button-bar\x20{\x0a\x20\x20\x20\x20\x20\x20text-align:\x20center;\x0a\x20\x20\x20\x20\x20\x20margin:\x2020px\x200;\x0a\x20\x20\x20\x20\x20\x20padding:\x2015px;\x0a\x20\x20\x20\x20\x20\x20background:\x20#f8f9fa;\x0a\x20\x20\x20\x20\x20\x20border-radius:\x208px;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20.btn\x20{\x0a\x20\x20\x20\x20\x20\x20padding:\x2010px\x2025px;\x0a\x20\x20\x20\x20\x20\x20margin:\x200\x208px;\x0a\x20\x20\x20\x20\x20\x20font-size:\x2014px;\x0a\x20\x20\x20\x20\x20\x20font-weight:\x20600;\x0a\x20\x20\x20\x20\x20\x20border:\x20none;\x0a\x20\x20\x20\x20\x20\x20border-radius:\x206px;\x0a\x20\x20\x20\x20\x20\x20cursor:\x20pointer;\x0a\x20\x20\x20\x20\x20\x20transition:\x20all\x200.3s;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20.btn-primary\x20{\x0a\x20\x20\x20\x20\x20\x20background:\x20linear-gradient(135deg,\x20#667eea,\x20#764ba2);\x0a\x20\x20\x20\x20\x20\x20color:\x20white;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20.btn-primary:hover\x20{\x0a\x20\x20\x20\x20\x20\x20transform:\x20translateY(-2px);\x0a\x20\x20\x20\x20\x20\x20box-shadow:\x200\x205px\x2015px\x20rgba(102,126,234,0.4);\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20.section\x20{\x0a\x20\x20\x20\x20\x20\x20margin:\x2025px\x200;\x0a\x20\x20\x20\x20\x20\x20padding:\x2015px;\x0a\x20\x20\x20\x20\x20\x20background:\x20#f8f9fa;\x0a\x20\x20\x20\x20\x20\x20border-radius:\x208px;\x0a\x20\x20\x20\x20\x20\x20font-size:\x2013px;\x0a\x20\x20\x20\x20}\x0a\x20\x20\x20\x20.grade-a\x20{\x20color:\x20#28a745;\x20font-weight:\x20700;\x20}\x0a\x20\x20\x20\x20p\x20{\x20margin:\x208px\x200;\x20font-size:\x2014px;\x20}\x0a\x20\x20\x20\x20ul\x20{\x20margin:\x2012px\x200;\x20padding-left:\x2025px;\x20}\x0a\x20\x20\x20\x20li\x20{\x20margin:\x206px\x200;\x20font-size:\x2013px;\x20}\x0a\x20\x20\x20\x20.summary-box\x20{\x0a\x20\x20\x20\x20\x20\x20background:\x20#f8f9fa;\x0a\x20\x20\x20\x20\x20\x20border-left:\x204px\x20solid\x20#667eea;\x0a\x20\x20\x20\x20\x20\x20padding:\x2015px;\x0a\x20\x20\x20\x20\x20\x20margin:\x2015px\x200;\x0a\x20\x20\x20\x20\x20\x20border-radius:\x204px;\x0a\x20\x20\x20\x20\x20\x20font-size:\x2013px;\x0a\x20\x20\x20\x20}\x0a\x20\x20</style>\x0a</head>\x0a<body>\x0a<div\x20class=\x22report-container\x22>\x0a\x20\x20<h1>Home\x20Energy\x20Analysis\x20(HEA)\x20Report</h1>\x0a\x20\x20<div\x20class=\x22subtitle\x22>'+a['startDate']+'\x20–\x20'+a['endDate']+'\x20('+l['days']+'\x20days)</div>\x0a\x0a\x20\x20\x20\x20<h2>Executive\x20Summary</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>High-level\x20overview\x20of\x20your\x20system\x27s\x20performance\x20and\x20financial\x20impact\x20this\x20billing\x20period.</em></p>\x0a\x20\x20\x0a\x20\x20'+((()=>{const u=l['efficiency'],g=l['peakCoverage'],k=l['touSavings']+l['solarValue'],M=[];if(u<THRESHOLDS['efficiency_critical'])M['push']('battery\x20efficiency\x20at\x20'+u['toFixed'](0x1)+'%');if(g<THRESHOLDS['peak_coverage_critical'])M['push']('peak\x20coverage\x20at\x20'+g['toFixed'](0x1)+'%');if(k<=0x0)M['push']('no\x20net\x20savings\x20recorded\x20this\x20period');if(M['length']>=0x2)return'<div\x20style=\x22background:#f8d7da;\x20border-left:5px\x20solid\x20#dc3545;\x20border-radius:6px;\x20padding:15px\x2018px;\x20margin-bottom:20px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:700;\x20color:#721c24;\x20font-size:15px;\x20margin-bottom:6px;\x22>🔴\x20System\x20Needs\x20Immediate\x20Attention</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<p\x20style=\x22color:#721c24;\x20margin:0;\x22>Your\x20system\x20is\x20underperforming\x20this\x20billing\x20period\x20with\x20'+M['join']('\x20and\x20')+'.\x20Review\x20the\x20Alerts\x20&amp;\x20Notifications\x20section\x20below\x20for\x20specific\x20action\x20items.\x20Do\x20not\x20ignore\x20—\x20degraded\x20performance\x20compounds\x20over\x20time\x20and\x20increases\x20your\x20utility\x20costs.</p>\x0a\x20\x20\x20\x20\x20\x20</div>';if(M['length']===0x1)return'<div\x20style=\x22background:#fff3cd;\x20border-left:5px\x20solid\x20#ffc107;\x20border-radius:6px;\x20padding:15px\x2018px;\x20margin-bottom:20px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:700;\x20color:#856404;\x20font-size:15px;\x20margin-bottom:6px;\x22>⚠️\x20System\x20Performance\x20Advisory</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<p\x20style=\x22color:#856404;\x20margin:0;\x22>Your\x20system\x20is\x20mostly\x20performing\x20well\x20over\x20the\x20past\x20'+l['days']+'\x20days\x20with\x20'+g['toFixed'](0x1)+'%\x20peak\x20coverage,\x20but\x20attention\x20is\x20needed:\x20'+M[0x0]+'.\x20Check\x20the\x20Alerts\x20section\x20below\x20for\x20recommended\x20actions\x20before\x20next\x20billing\x20period.</p>\x0a\x20\x20\x20\x20\x20\x20</div>';if(g>=THRESHOLDS['peak_coverage_critical']&&u>=THRESHOLDS['efficiency_critical']&&g<0x62)return'<div\x20style=\x22background:#d4edda;\x20border-left:5px\x20solid\x20#28a745;\x20border-radius:6px;\x20padding:15px\x2018px;\x20margin-bottom:20px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:700;\x20color:#155724;\x20font-size:15px;\x20margin-bottom:6px;\x22>✅\x20System\x20Performing\x20Well</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<p\x20style=\x22color:#155724;\x20margin:0;\x22>Your\x20system\x20delivered\x20solid\x20performance\x20over\x20the\x20past\x20'+l['days']+'\x20days\x20—\x20'+g['toFixed'](0x1)+'%\x20peak\x20coverage\x20and\x20'+u['toFixed'](0x1)+'%\x20battery\x20efficiency.\x20Savings\x20are\x20on\x20track.\x20Review\x20sections\x20below\x20for\x20any\x20optimization\x20opportunities.</p>\x0a\x20\x20\x20\x20\x20\x20</div>';return'<div\x20style=\x22background:#d4edda;\x20border-left:5px\x20solid\x20#28a745;\x20border-radius:6px;\x20padding:15px\x2018px;\x20margin-bottom:20px;\x22>\x0a\x20\x20\x20\x20\x20\x20<div\x20style=\x22font-weight:700;\x20color:#155724;\x20font-size:15px;\x20margin-bottom:6px;\x22>🏆\x20Outstanding\x20System\x20Performance</div>\x0a\x20\x20\x20\x20\x20\x20<p\x20style=\x22color:#155724;\x20margin:0;\x22>Your\x20home\x20energy\x20system\x20continues\x20to\x20operate\x20at\x20an\x20exceptional\x20level\x20over\x20the\x20past\x20'+l['days']+'\x20days\x20—\x20'+g['toFixed'](0x1)+'%\x20peak\x20coverage\x20and\x20'+u['toFixed'](0x1)+'%\x20battery\x20efficiency\x20place\x20your\x20system\x20in\x20the\x20top\x205%\x20of\x20residential\x20battery\x20installations\x20nationwide.\x20Keep\x20it\x20up.</p>\x0a\x20\x20\x20\x20</div>';})())+'\x0a\x20\x20\x0a\x20\x20<div\x20class=\x22exec-grid\x22\x20style=\x22display:grid;\x20grid-template-columns:repeat(2,\x201fr);\x20gap:20px;\x20margin:20px\x200;\x22>\x0a\x20\x20\x20\x20<div\x20style=\x22background:#f8f9fa;\x20padding:25px;\x20border-radius:8px;\x20text-align:center;\x22>\x0a\x20\x20\x20\x20\x20\x20<div\x20style=\x22color:#6c757d;\x20font-size:16px;\x20margin-bottom:10px;\x22>Total\x20kWh</div>\x0a\x20\x20\x20\x20\x20\x20<div\x20class=\x22big-number\x22\x20style=\x22color:#667eea;\x20font-size:42px;\x20font-weight:700;\x22>'+a['totalKwh']+'</div>\x0a\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20<div\x20style=\x22background:#f8f9fa;\x20padding:25px;\x20border-radius:8px;\x20text-align:center;\x22>\x0a\x20\x20\x20\x20\x20\x20<div\x20style=\x22color:#6c757d;\x20font-size:16px;\x20margin-bottom:10px;\x22>Total\x20Bill</div>\x0a\x20\x20\x20\x20\x20\x20<div\x20class=\x22big-number\x22\x20style=\x22color:#667eea;\x20font-size:42px;\x20font-weight:700;\x22>$'+a['totalCost']['toFixed'](0x2)+'</div>\x0a\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20<div\x20style=\x22background:#f8f9fa;\x20padding:25px;\x20border-radius:8px;\x20text-align:center;\x22>\x0a\x20\x20\x20\x20\x20\x20<div\x20style=\x22color:#6c757d;\x20font-size:16px;\x20margin-bottom:10px;\x22>Savings\x20vs\x20Flat</div>\x0a\x20\x20\x20\x20\x20\x20<div\x20class=\x22big-number\x22\x20style=\x22color:#667eea;\x20font-size:42px;\x20font-weight:700;\x22>$'+(l['touSavings']+l['solarValue'])['toFixed'](0x2)+'</div>\x0a\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20<div\x20style=\x22background:#f8f9fa;\x20padding:25px;\x20border-radius:8px;\x20text-align:center;\x22>\x0a\x20\x20\x20\x20\x20\x20<div\x20style=\x22color:#6c757d;\x20font-size:16px;\x20margin-bottom:10px;\x22>Battery\x20Efficiency</div>\x0a\x20\x20\x20\x20\x20\x20<div\x20class=\x22big-number\x22\x20style=\x22color:#667eea;\x20font-size:42px;\x20font-weight:700;\x22>'+l['efficiency']['toFixed'](0x1)+'%</div>\x0a\x20\x20\x20\x20</div>\x0a\x20\x20</div>\x0a\x0a\x20\x20<h3>Cumulative\x20Savings\x20Tracker</h3>\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<th>Period</th>\x0a\x20\x20\x20\x20\x20\x20<th>Savings\x20($)</th>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20'+A['map'](u=>'\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>'+u['period']+'</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+u['savings']['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20')['join']('')+'\x0a\x20\x20\x20\x20<tr\x20class=\x22highlight\x22>\x0a\x20\x20\x20\x20\x20\x20<td><strong>Total\x20('+A['length']+'\x20months)</strong></td>\x0a\x20\x20\x20\x20\x20\x20<td><strong>$'+C['toFixed'](0x2)+'</strong></td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20</table>\x0a\x0a\x20\x20'+X+'\x0a\x0a\x20\x20<h2>Alerts\x20&\x20Notifications</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Automated\x20monitoring\x20identifies\x20issues\x20and\x20provides\x20operational\x20status.</em></p>\x0a\x20\x20'+F+'\x0a\x0a\x20\x20<h2>Billing\x20Summary</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Breakdown\x20of\x20your\x20energy\x20consumption\x20sources\x20and\x20time-of-use\x20patterns\x20from\x20your\x20'+(JSON['parse'](localStorage['getItem']('hea_config')||'{}')['utility']||'Utility')+'\x20bill.</em></p>\x0a\x20\x20\x0a\x20\x20<h3>Energy\x20Source\x20Breakdown</h3>\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<th>Source</th>\x0a\x20\x20\x20\x20\x20\x20<th>Daily\x20Average</th>\x0a\x20\x20\x20\x20\x20\x20<th>%\x20of\x20Total</th>\x0a\x20\x20\x20\x20\x20\x20<th>Total\x20('+l['days']+'\x20Days)</th>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Battery/Inverter</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+(l['inverterLoads']/l['days'])['toFixed'](0x2)+'\x20kWh</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+e['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['inverterLoads']['toFixed'](0x1)+'\x20kWh</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Grid\x20via\x20Inverter</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+(l['gridViaInverter']/l['days'])['toFixed'](0x2)+'\x20kWh</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+Z['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['gridViaInverter']['toFixed'](0x1)+'\x20kWh</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Grid\x20Direct\x20(Bypass)</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+(l['bypassLoads']/l['days'])['toFixed'](0x2)+'\x20kWh</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+j['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['bypassLoads']['toFixed'](0x1)+'\x20kWh</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr\x20class=\x22highlight\x22>\x0a\x20\x20\x20\x20\x20\x20<td><strong>Total\x20Consumption</strong></td>\x0a\x20\x20\x20\x20\x20\x20<td>'+D['toFixed'](0x2)+'\x20kWh</td>\x0a\x20\x20\x20\x20\x20\x20<td>100%</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+a['totalKwh']['toFixed'](0x1)+'\x20kWh</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20</table>\x0a\x0a\x0a\x20\x20<h3>Time-of-Use\x20Overview</h3>\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<th>Category</th>\x0a\x20\x20\x20\x20\x20\x20<th>kWh</th>\x0a\x20\x20\x20\x20\x20\x20<th>%\x20of\x20Total</th>\x0a\x20\x20\x20\x20\x20\x20<th>Rate\x20($/kWh)</th>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>On-Peak\x20Usage</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+a['peakKwh']['toFixed'](0x0)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+b['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+0.224['toFixed'](0x4)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Off-Peak\x20Usage</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+a['offpeakKwh']['toFixed'](0x0)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+q['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+0.106['toFixed'](0x4)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20</table>\x0a\x0a\x20\x20<h2>Battery\x20System\x20Performance</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Detailed\x20analysis\x20of\x20battery\x20charging,\x20discharging,\x20efficiency,\x20and\x20solar\x20integration.</em></p>\x0a\x20\x20\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<th>Metric</th>\x0a\x20\x20\x20\x20\x20\x20<th>Value</th>\x0a\x20\x20\x20\x20\x20\x20<th>Notes</th>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Total\x20Charged</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['totalCharged']['toFixed'](0x1)+'\x20kWh</td>\x0a\x20\x20\x20\x20\x20\x20<td>Energy\x20stored\x20in\x20battery</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Total\x20Discharged</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['totalDischarged']['toFixed'](0x1)+'\x20kWh</td>\x0a\x20\x20\x20\x20\x20\x20<td>Energy\x20delivered\x20from\x20battery</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr\x20class=\x22highlight\x22>\x0a\x20\x20\x20\x20\x20\x20<td><strong>Round-Trip\x20Efficiency</strong></td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['efficiency']['toFixed'](0x1)+'%</td>\x0a\x20\x20\x20\x20\x20\x20<td>Industry\x20best:\x20>90%</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Grid\x20Charging</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['gridCharged']['toFixed'](0x1)+'\x20kWh\x20('+(l['gridCharged']/l['totalCharged']*0x64)['toFixed'](0x1)+'%)</td>\x0a\x20\x20\x20\x20\x20\x20<td>Charged\x20from\x20grid</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr\x20class=\x22highlight\x22>\x0a\x20\x20\x20\x20\x20\x20<td>Solar</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['solarCharged']['toFixed'](0x1)+'\x20kWh\x20('+n['toFixed'](0x1)+'%)</td>\x0a\x20\x20\x20\x20\x20\x20<td>Free\x20solar\x20energy</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20</table>\x0a\x0a\x20\x20<h2>Peak\x20Period\x20Analysis</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Detailed\x20breakdown\x20of\x20peak\x20hour\x20performance\x20and\x20cost\x20avoidance.</em></p>\x0a\x20\x20\x0a\x20\x20<div\x20class=\x22section\x22>\x0a\x20\x20\x20\x20<h3>Peak\x20Hours\x20Schedule\x20(Winter\x20-\x20October\x20to\x20May)</h3>\x0a\x20\x20\x20\x20<ul>\x0a\x20\x20\x20\x20\x20\x20<li><strong>Morning\x20Peak:</strong>\x206:00\x20AM\x20-\x209:00\x20AM\x20(Mon-Fri)</li>\x0a\x20\x20\x20\x20\x20\x20<li><strong>Evening\x20Peak:</strong>\x205:00\x20PM\x20-\x209:00\x20PM\x20(Mon-Fri)</li>\x0a\x20\x20\x20\x20\x20\x20<li><strong>Off-Peak:</strong>\x20All\x20weekends,\x20national\x20holidays,\x20and\x20all\x20hours\x20outside\x20peak\x20windows</li>\x0a\x20\x20\x20\x20</ul>\x0a\x20\x20\x20\x20<p><strong>Billing\x20Period:</strong>\x20'+l['days']+'\x20days\x20(~'+G+'\x20weekdays)</p>\x0a\x20\x20</div>\x0a\x0a\x20\x20<h3>Peak\x20Hour\x20Rates\x20(All-In\x20Costs)</h3>\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<th>Rate\x20Type</th>\x0a\x20\x20\x20\x20\x20\x20<th>Supply</th>\x0a\x20\x20\x20\x20\x20\x20<th>Delivery/Fees</th>\x0a\x20\x20\x20\x20\x20\x20<th>All-In</th>\x0a\x20\x20\x20\x20\x20\x20<th>vs\x20Flat\x20($'+l['flatRate']['toFixed'](0x4)+')</th>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Peak</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+0.224['toFixed'](0x4)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+l['deliveryRate']['toFixed'](0x4)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+l['peakAllIn']['toFixed'](0x4)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:#dc3545;\x20font-weight:600;\x22>+'+((l['peakAllIn']/l['flatRate']-0x1)*0x64)['toFixed'](0x1)+'%\x20(penalty)</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Off-Peak</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+0.106['toFixed'](0x4)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+l['deliveryRate']['toFixed'](0x4)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+l['offpeakAllIn']['toFixed'](0x4)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:#28a745;\x20font-weight:600;\x22>-'+((0x1-l['offpeakAllIn']/l['flatRate'])*0x64)['toFixed'](0x1)+'%\x20(savings)</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20</table>\x0a\x0a\x20\x20<h3>Peak\x20Performance\x20-\x20Outstanding\x20Achievement</h3>\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr><th>Metric</th><th>Value</th><th>Grade</th></tr>\x0a\x20\x20\x20\x20<tr><td>Peak\x20Slots\x20Detected</td><td>'+l['peakSlotsTotal']+'\x20slots</td><td>-</td></tr>\x0a\x20\x20\x20\x20<tr><td>Slots\x20Covered\x20by\x20Battery</td><td>'+l['peakSlotsCovered']+'\x20slots</td><td>-</td></tr>\x0a\x20\x20\x20\x20<tr><td>Peak\x20Slot\x20Coverage</td><td>'+l['peakCoverage']['toFixed'](0x1)+'%</td><td><span\x20class=\x22grade-a\x22>A+</span></td></tr>\x0a\x20\x20\x20\x20<tr><td>Inverter\x20Peak\x20Energy</td><td>'+l['inverterPeakEnergy']['toFixed'](0x1)+'\x20kWh</td><td>-</td></tr>\x0a\x20\x20\x20\x20<tr><td>Grid\x20Peak\x20Energy</td><td>'+l['gridPeakEnergy']['toFixed'](0x1)+'\x20kWh</td><td>-</td></tr>\x0a\x20\x20\x20\x20<tr><td>Total\x20Peak\x20Window\x20Energy</td><td>'+l['totalPeakEnergy']['toFixed'](0x1)+'\x20kWh</td><td>-</td></tr>\x0a\x20\x20\x20\x20<tr\x20class=\x22highlight\x22><td><strong>Battery\x20Share\x20of\x20Peak</strong></td><td>'+l['batteryShareOfPeak']['toFixed'](0x1)+'%</td><td><span\x20class=\x22grade-a\x22>A+</span></td></tr>\x0a\x20\x20</table>\x0a\x0a\x20\x20<ul>\x0a\x20\x20\x20\x20<li>Only\x20'+a['peakKwh']['toFixed'](0x0)+'\x20kWh\x20used\x20during\x20peak\x20hours\x20('+b['toFixed'](0x1)+'%\x20of\x20total)</li>\x0a\x20\x20\x20\x20<li>'+a['offpeakKwh']['toFixed'](0x0)+'\x20kWh\x20during\x20off-peak\x20hours\x20('+q['toFixed'](0x1)+'%\x20of\x20total)</li>\x0a\x20\x20</ul>\x0a\x0a\x20\x20<h2>Solar\x20Production</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Solar\x20contribution\x20and\x20optimization\x20potential.</em></p>\x0a\x20\x20\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<th>Metric</th>\x0a\x20\x20\x20\x20\x20\x20<th>Value</th>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Total\x20Solar\x20Charged</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+l['solarCharged']['toFixed'](0x1)+'\x20kWh\x20('+n['toFixed'](0x1)+'%\x20of\x20total\x20charging)</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Daily\x20Solar\x20Average</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+(l['solarCharged']/l['days'])['toFixed'](0x1)+'\x20kWh/day</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr\x20class=\x22highlight\x22>\x0a\x20\x20\x20\x20\x20\x20<td><strong>Solar\x20Value\x20(at\x20off-peak\x20rate)</strong></td>\x0a\x20\x20\x20\x20\x20\x20<td><strong>$'+l['solarValue']['toFixed'](0x2)+'</strong></td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20</table>\x0a\x0a\x0a\x0a\x20\x20<h2>Financial\x20Analysis</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Complete\x20breakdown\x20of\x20costs,\x20savings,\x20and\x20return\x20on\x20investment.</em></p>\x0a\x20\x20\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<th>Item</th>\x0a\x20\x20\x20\x20\x20\x20<th>Amount\x20($)</th>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Flat\x20Rate\x20Cost\x20(if\x20no\x20TOU)</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+l['flatTotal']['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Your\x20Actual\x20TOU\x20Cost</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+a['totalCost']['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr\x20class=\x22highlight\x22>\x0a\x20\x20\x20\x20\x20\x20<td><strong>TOU\x20Savings</strong></td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+l['touSavings']['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr\x20class=\x22highlight\x22>\x0a\x20\x20\x20\x20\x20\x20<td><strong>Solar\x20Value\x20Added</strong></td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+l['solarValue']['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr\x20style=\x22background:#fff3cd;\x22>\x0a\x20\x20\x20\x20\x20\x20<td><strong>Minus:\x20Peak\x20Hours\x20Paid</strong>\x20('+l['gridPeakEnergy']['toFixed'](0x1)+'\x20kWh\x20@\x20$'+l['peakAllIn']['toFixed'](0x4)+'/kWh)</td>\x0a\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:#dc3545;\x20font-weight:600;\x22>-$'+(l['gridPeakEnergy']*l['peakAllIn'])['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr\x20style=\x22background:#d4edda;\x20font-weight:bold;\x22>\x0a\x20\x20\x20\x20\x20\x20<td><strong>Total\x20Period\x20Savings\x20(Net\x20Actual)</strong></td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+(l['touSavings']+l['solarValue']-l['gridPeakEnergy']*l['peakAllIn'])['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20</table>\x0a\x0a\x20\x20<div\x20class=\x22section\x22>\x0a\x20\x20\x20\x20<p><strong>ROI\x20Status:</strong></p>\x0a\x20\x20\x20\x20<p>System\x20Cost:\x20$0\x20(fully\x20paid\x20off!)</p>\x0a\x20\x20\x20\x20<p>Current\x20Performance:\x20$'+(l['touSavings']+l['solarValue']-l['gridPeakEnergy']*l['peakAllIn'])['toFixed'](0x2)+'/month\x20=\x20<strong>100%\x20pure\x20profit</strong></p>\x0a\x20\x20</div>\x0a\x0a\x20\x20'+i+'\x0a\x0a\x20\x20<h2>Equipment\x20Health\x20Monitor</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Automated\x20health\x20check\x20based\x20on\x20performance\x20metrics\x20and\x20operational\x20data.</em></p>\x0a\x20\x20\x0a\x20\x20<div\x20class=\x22section\x22>\x0a\x20\x20\x20\x20<p>├─\x20<strong>Battery\x20Cells:</strong>\x20'+(l['efficiency']>=0x5a?'✅\x20Excellent':l['efficiency']>=0x55?'⚠️\x20Good':'🔴\x20Needs\x20Attention')+'\x20('+l['efficiency']['toFixed'](0x1)+'%\x20efficiency)</p>\x0a\x20\x20\x20\x20<p>├─\x20<strong>Inverter:</strong>\x20✅\x20Normal\x20(consistent\x20power\x20delivery)</p>\x0a\x20\x20\x20\x20<p>├─\x20<strong>Solar\x20Panel:</strong>\x20'+(n>=0x19?'✅\x20Optimal':n>=0xf?'⚠️\x20Fair':'🔴\x20Low')+'\x20('+n['toFixed'](0x1)+'%\x20contribution)</p>\x0a\x20\x20\x20\x20<p>└─\x20<strong>Grid\x20Connection:</strong>\x20✅\x20Stable</p>\x0a\x20\x20</div>\x0a\x0a\x20\x20'+(L['length']>0x0?'\x0a\x20\x20<h2>Seasonal\x20Comparison</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>How\x20your\x20system\x20performance\x20varies\x20between\x20winter\x20and\x20summer\x20seasons.</em></p>\x0a\x20\x20\x0a\x20\x20<table>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<th>Metric</th>\x0a\x20\x20\x20\x20\x20\x20<th>Winter\x20(Current)</th>\x0a\x20\x20\x20\x20\x20\x20<th>Summer\x20(Est.)</th>\x0a\x20\x20\x20\x20\x20\x20<th>Difference</th>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Peak\x20Rate</td>\x0a\x20\x20\x20\x20\x20\x20<td>$0.3023/kWh</td>\x0a\x20\x20\x20\x20\x20\x20<td>$0.6482/kWh</td>\x0a\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:#dc3545;\x20font-weight:600;\x22>+114%\x20💰</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Solar\x20Production</td>\x0a\x20\x20\x20\x20\x20\x20<td>'+(l['solarCharged']/l['days'])['toFixed'](0x1)+'\x20kWh/day</td>\x0a\x20\x20\x20\x20\x20\x20<td>~4.5\x20kWh/day</td>\x0a\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:#28a745;\x20font-weight:600;\x22>+125%\x20☀️</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20\x20\x20<tr>\x0a\x20\x20\x20\x20\x20\x20<td>Monthly\x20Profit</td>\x0a\x20\x20\x20\x20\x20\x20<td>$'+B['toFixed'](0x2)+'</td>\x0a\x20\x20\x20\x20\x20\x20<td>~$55.00</td>\x0a\x20\x20\x20\x20\x20\x20<td\x20style=\x22color:#28a745;\x20font-weight:600;\x22>+110%\x20📈</td>\x0a\x20\x20\x20\x20</tr>\x0a\x20\x20</table>\x0a\x20\x20\x0a\x20\x20<p\x20style=\x22background:#fff3cd;\x20border-left:4px\x20solid\x20#ffc107;\x20padding:15px;\x20margin-top:15px;\x20border-radius:4px;\x22>\x0a\x20\x20\x20\x20<strong>💡\x20Key\x20Finding:</strong>\x20Summer\x20is\x20your\x20profit\x20season!\x20Higher\x20peak\x20rates\x20combined\x20with\x20increased\x20solar\x20production\x20should\x20more\x20than\x20double\x20your\x20monthly\x20savings.\x20Current\x20winter\x20performance\x20positions\x20you\x20perfectly\x20for\x20summer\x20gains.\x0a\x20\x20</p>\x0a\x20\x20':'')+'\x0a\x0a\x20\x20<h2>System\x20Specifications</h2>\x0a\x20\x20<p\x20style=\x22margin-bottom:15px;\x22><em>Complete\x20hardware\x20configuration\x20for\x20reference\x20and\x20troubleshooting.</em></p>\x0a\x20\x20\x0a\x20\x20'+((()=>{let u={},g=![];try{const aA=localStorage['getItem']('hea_config');!aA?g=!![]:u=JSON['parse'](aA);}catch(ax){g=!![];}const k=u&&u['inverterBrand']&&u['batteryBrand']&&u['utility']&&u['s1EveStart']&&u['configVersion'],M=g||!k?'<div\x20style=\x22background:#fff3cd;\x20border:1px\x20solid\x20#ffc107;\x20border-left:4px\x20solid\x20#ffc107;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20border-radius:6px;\x20padding:10px\x2014px;\x20margin-bottom:15px;\x20font-size:13px;\x20color:#856404;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20⚠️\x20<strong>Setup\x20Incomplete:</strong>\x20System\x20specs\x20below\x20show\x20default\x20values.\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Open\x20the\x20main\x20form\x20and\x20click\x20<strong>⚙️\x20Edit\x20Setup</strong>\x20to\x20enter\x20your\x20hardware\x20details.\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>':'',Q=u['inverterBrand']||'EG4',I=u['inverterModel']||'6000XP',t=u['inverterCount']||0x1,m=u['inverterKwEach']||0x6,H=(t*m)['toFixed'](0x1),E=t>0x1?Q+'\x20'+I+'\x20×\x20'+t+'\x20('+H+'kW\x20continuous,\x20parallel\x20split-phase)':Q+'\x20'+I+'\x20('+H+'kW\x20continuous)',v=u['batteryBrand']||'Eco-Worthy',r=u['batteryModel']||'48V\x20100Ah\x20V3',R=u['batteryCount']||0x2,f=u['batteryKwhEach']||5.12,U=(R*f)['toFixed'](0x2),z=v+'\x20'+r+'\x20×\x20'+R+'\x20('+U+'\x20kWh\x20total)',W=u['transferSwitch']||'30-amp\x20Transfer\x20Switch',y=u['solarWatts']||0x1b8,p=u['solarController']||'Delta\x202\x20Max',a0=u['utility']||'PEPCO',a1=u['season1Name']||'Winter',a2=u['season2Name']||'Summer',a3=aB=>{if(!aB||aB==='none')return null;const aD=parseInt(aB);return aD<0xc?aD+':00\x20AM':aD===0xc?'12:00\x20PM':aD-0xc+':00\x20PM';},a4=a3(u['s1MornStart'])?a3(u['s1MornStart'])+'–'+a3(u['s1MornEnd']):null,a5=a3(u['s1EveStart'])?a3(u['s1EveStart'])+'–'+a3(u['s1EveEnd']):null,a6=a3(u['s2MornStart'])?a3(u['s2MornStart'])+'–'+a3(u['s2MornEnd']):null,a7=a3(u['s2EveStart'])?a3(u['s2EveStart'])+'–'+a3(u['s2EveEnd']):null,a8=[a4,a5]['filter'](Boolean)['join']('\x20&\x20')||'Not\x20configured',a9=[a6,a7]['filter'](Boolean)['join']('\x20&\x20')||'Not\x20configured',aa=(u['peakDays']||[])['length'],al=aa===0x7?'All\x20days':aa===0x5?'Mon–Fri':aa+'\x20days/week',aL=(u['monthSeasons']||[])['map']((aB,aD)=>aB===0x0?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][aD]:null)['filter'](Boolean)['join'](',\x20')||'Oct–May',ah=(u['monthSeasons']||[])['map']((aB,aD)=>aB===0x1?['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][aD]:null)['filter'](Boolean)['join'](',\x20')||'Jun–Sep',aY=u['installDate']?new Date(u['installDate']+'-01')['toLocaleDateString']('en-US',{'month':'long','year':'numeric'}):'Not\x20recorded',aC=u['systemCost']?'$'+parseFloat(u['systemCost'])['toLocaleString']():'Not\x20recorded';return M+'\x0a\x20\x20<div\x20class=\x22section\x22>\x0a\x20\x20\x20\x20<p><strong>Inverter\x20&amp;\x20Battery:</strong></p>\x0a\x20\x20\x20\x20<ul>\x0a\x20\x20\x20\x20\x20\x20<li>Inverter:\x20'+E+'</li>\x0a\x20\x20\x20\x20\x20\x20<li>Transfer\x20Switch:\x20'+W+'</li>\x0a\x20\x20\x20\x20\x20\x20<li>Battery:\x20'+z+'</li>\x0a\x20\x20\x20\x20</ul>\x0a\x20\x20\x20\x20<p><strong>Solar\x20Integration:</strong></p>\x0a\x20\x20\x20\x20<ul>\x0a\x20\x20\x20\x20\x20\x20<li>Panel:\x20'+y+'W</li>\x0a\x20\x20\x20\x20\x20\x20<li>Controller:\x20'+p+'\x20→\x20'+Q+'\x20'+I+'</li>\x0a\x20\x20\x20\x20</ul>\x0a\x20\x20\x20\x20<p><strong>Utility\x20&amp;\x20TOU\x20Schedule:</strong></p>\x0a\x20\x20\x20\x20<ul>\x0a\x20\x20\x20\x20\x20\x20<li>Utility:\x20'+a0+'</li>\x0a\x20\x20\x20\x20\x20\x20<li>'+a1+'\x20Peak\x20Hours:\x20'+a8+'\x20('+aL+')\x20—\x20'+al+'</li>\x0a\x20\x20\x20\x20\x20\x20<li>'+a2+'\x20Peak\x20Hours:\x20'+a9+'\x20('+ah+')\x20—\x20'+al+'</li>\x0a\x20\x20\x20\x20</ul>\x0a\x20\x20\x20\x20<p><strong>System\x20Investment:</strong></p>\x0a\x20\x20\x20\x20<ul>\x0a\x20\x20\x20\x20\x20\x20<li>Install\x20Date:\x20'+aY+'</li>\x0a\x20\x20\x20\x20\x20\x20<li>System\x20Cost:\x20'+aC+'</li>\x0a\x20\x20\x20\x20</ul>\x0a\x20\x20</div>';})())+'\x0a\x0a\x20\x20<div\x20class=\x22button-bar\x20no-print\x22\x20style=\x22margin-top:\x2050px;\x22>\x0a\x20\x20\x20\x20<button\x20class=\x22btn\x20btn-primary\x22\x20onclick=\x22window.print()\x22>🖨️\x20Print\x20Report</button>\x0a\x20\x20\x20\x20<button\x20class=\x22btn\x20btn-primary\x22\x20onclick=\x22\x0a\x20\x20\x20\x20\x20\x20var\x20overlay\x20=\x20window.parent\x20?\x20window.parent.document.getElementById(\x27reportOverlay\x27)\x20:\x20null;\x0a\x20\x20\x20\x20\x20\x20if(overlay)\x20{\x20overlay.remove();\x20}\x20else\x20{\x20window.close();\x20}\x0a\x20\x20\x20\x20\x22>✕\x20Close\x20Report</button>\x0a\x20\x20</div>\x0a\x20\x20<div\x20class=\x22no-print\x22\x20style=\x22text-align:center;\x20margin-top:12px;\x22>\x0a\x20\x20\x20\x20<a\x20href=\x22https://ko-fi.com/heareport\x22\x20target=\x22_blank\x22\x20style=\x22display:inline-block;padding:10px\x2022px;background:#FF5E5B;color:white;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700;margin:4px;\x22>☕️\x20Support\x20on\x20Ko-fi</a>\x0a\x20\x20\x20\x20<a\x20href=\x22https://docs.google.com/forms/d/e/1FAIpQLSci5B5u_fKKjxXMGiZpo35COS-Uti9wtVcnCnJi0bjHPRn8bA/viewform?usp=publish-editor\x22\x20target=\x22_blank\x22\x20style=\x22display:inline-block;padding:10px\x2022px;background:linear-gradient(135deg,#28a745,#20c997);color:white;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700;margin:4px;\x22>🤝\x20Help\x20Expand\x20Support</a>\x0a\x20\x20</div>\x0a\x0a\x20\x20<div\x20style=\x22text-align:center;\x20margin-top:40px;\x20padding-top:20px;\x20border-top:2px\x20solid\x20#e9ecef;\x20color:#6c757d;\x20font-size:14px;\x22>\x0a\x20\x20\x20\x20<p>Report\x20Generated:\x20'+new Date()['toLocaleString']()+'</p>\x0a\x20\x20\x20\x20<p>HEA\x20Report\x20Generator\x20v5.0\x20-\x20Complete\x20Comprehensive\x20Analysis</p>\x0a\x20\x20\x20\x20<p\x20style=\x22margin-top:8px;\x20font-size:12px;\x20color:#adb5bd;\x22>\x0a\x20\x20\x20\x20\x20\x20Copyright\x20&copy;\x202025\x20Frank\x20L.\x20Thomas\x20Sr..\x20All\x20Rights\x20Reserved.<br>\x0a\x20\x20\x20\x20\x20\x20Proprietary\x20methodology\x20&mdash;\x20unauthorized\x20reproduction\x20prohibited.\x0a\x20\x20\x20\x20</p>\x0a\x20\x20</div>\x0a</div>\x0a</body>\x0a</html>',s=/Android|iPhone|iPad|iPod/i['test'](navigator['userAgent']);if(s){let u=document['getElementById']('reportOverlay');!u&&(u=document['createElement']('div'),u['id']='reportOverlay',u['style']['cssText']='\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20position:\x20fixed;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20top:\x200;\x20left:\x200;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20width:\x20100vw;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20height:\x20100vh;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20background:\x20white;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20z-index:\x2099999;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20overflow-y:\x20auto;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20-webkit-overflow-scrolling:\x20touch;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20box-sizing:\x20border-box;\x0a\x20\x20\x20\x20\x20\x20\x20\x20',document['body']['appendChild'](u));const g=N['match'](/<body[^>]*>([\s\S]*)<\/body>/i),k=g?g[0x1]:N,M=N['match'](/<style[^>]*>([\s\S]*?)<\/style>/i),Q=M?M[0x1]:'';u['innerHTML']='\x0a\x20\x20\x20\x20\x20\x20\x20\x20<style>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20'+Q+'\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20/*\x20Force\x20full\x20width\x20on\x20mobile\x20overlay\x20*/\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20body,\x20html\x20{\x20margin:\x200;\x20padding:\x200;\x20width:\x20100%;\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.report-container\x20{\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20width:\x20100%\x20!important;\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20max-width:\x20100%\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20box-sizing:\x20border-box\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20padding:\x2012px\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20/*\x20Force\x20ALL\x20tables\x20to\x20stretch\x20full\x20width\x20*/\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20table\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20width:\x20100%\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20max-width:\x20100%\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20display:\x20table\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20table-layout:\x20fixed\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20box-sizing:\x20border-box\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20word-wrap:\x20break-word\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20overflow-x:\x20visible\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20th,\x20td\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20word-wrap:\x20break-word\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20overflow-wrap:\x20break-word\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20white-space:\x20normal\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20padding:\x208px\x206px\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20font-size:\x2012px\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20/*\x20Executive\x20summary\x20grid\x20full\x20width\x20*/\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.exec-grid\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20display:\x20grid\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20grid-template-columns:\x20repeat(2,\x201fr)\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20width:\x20100%\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20box-sizing:\x20border-box\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20/*\x20All\x20sections\x20full\x20width\x20*/\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.section,\x20div,\x20p\x20{\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20max-width:\x20100%\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20box-sizing:\x20border-box\x20!important;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20h1\x20{\x20font-size:\x2020px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20h2\x20{\x20font-size:\x2017px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20h3\x20{\x20font-size:\x2015px\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20/*\x20Fix\x20highlight\x20rows\x20*/\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.highlight\x20{\x20width:\x20100%\x20!important;\x20}\x0a\x20\x20\x20\x20\x20\x20\x20\x20</style>\x0a\x20\x20\x20\x20\x20\x20\x20\x20<div\x20style=\x22position:sticky;\x20top:0;\x20z-index:100;\x20background:#667eea;\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20padding:10px\x2015px;\x20display:flex;\x20justify-content:space-between;\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20align-items:center;\x20box-shadow:0\x202px\x208px\x20rgba(0,0,0,0.3);\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<span\x20style=\x22color:white;\x20font-weight:700;\x20font-size:15px;\x22>📊\x20HEA\x20Report</span>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20onclick=\x22window.print()\x22\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20style=\x22background:rgba(255,255,255,0.2);\x20color:white;\x20border:1px\x20solid\x20rgba(255,255,255,0.5);\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20padding:6px\x2012px;\x20border-radius:6px;\x20font-size:13px;\x20cursor:pointer;\x20margin-right:8px;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20🖨️\x20Print\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<button\x20onclick=\x22document.getElementById(\x27reportOverlay\x27).remove()\x22\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20style=\x22background:white;\x20color:#667eea;\x20border:none;\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20padding:6px\x2014px;\x20border-radius:6px;\x20font-weight:700;\x20\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20font-size:13px;\x20cursor:pointer;\x22>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20✕\x20Close\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</button>\x0a\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20</div>\x0a\x20\x20\x20\x20\x20\x20\x20\x20'+k+'\x0a\x20\x20\x20\x20\x20\x20',u['scrollTop']=0x0;}else{const I=window['open']('','_blank');I['document']['write'](N),I['document']['close']();}showStatus('Complete\x20comprehensive\x20report\x20generated!','success');}
+"use strict";
+
+/* ═══════════ STATE ═══════════ */
+var S={logs:null,bill:null,rates:null,sel:0};
+/* Fallback rates ONLY — used when a bill doesn't expose its own per-kWh figures.
+   Every one is overridden the moment S.rates is populated from an imported bill.
+   Taxes are never modelled from constants; they come from the bill's own total. */
+var DEF={genOn:0.21235,genOff:0.11251,proc:0.0045355,distOn:0.20359,distOff:0.05821,
+  cust:8.44,myp:0.000828,credit:8.00};
+
+function $(id){return document.getElementById(id);}
+function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");
+  clearTimeout(t._x);t._x=setTimeout(function(){t.classList.remove("on");},2600);}
+function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(k));
+  localStorage.setItem(k,JSON.stringify(v));}catch(e){return null;}}
+
+/* ═══════════ PEAK RULES ═══════════ */
+/* Pepco R-TOU-P. Summer = Jun–Sep. Weekends and federal holidays are off-peak. */
+function isSummer(d){var m=d.getMonth()+1;return m>=6&&m<=9;}
+function peakHours(summer){return summer?[14,15,16,17,18]:[6,7,8,17,18,19,20];}
+function isPeak(d){
+  var dow=d.getDay(); if(dow===0||dow===6) return false;
+  return peakHours(isSummer(d)).indexOf(d.getHours())>-1;
+}
+
+/* ═══════════ LOG PARSING ═══════════ */
+var COLS={time:["time"],ptouser:["ptouser"],soc:["soc"],
+  etouser:["etouserday"],echg:["echgday"],edischg:["edischgday"],tbat:["tbat"],pload:["pload"]};
+function colIndex(head){
+  var map={},i,j,h;
+  for(i=0;i<head.length;i++){
+    h=String(head[i]||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+    for(var key in COLS) for(j=0;j<COLS[key].length;j++) if(h===COLS[key][j]) map[key]=i;
+  }
+  return map;
+}
+function toDate(v){
+  if(v instanceof Date) return v;
+  var s=String(v).trim().replace(/\//g,"-");
+  var m=s.match(/(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if(m) return new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+(m[6]||0));
+  var d=new Date(s); return isNaN(d)?null:d;
+}
+function parseWorkbook(wb,rows){
+  wb.SheetNames.forEach(function(sn){
+    var aoa=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:null});
+    if(!aoa.length) return;
+    var map=colIndex(aoa[0]||[]);
+    if(map.time===undefined) return;
+    for(var r=1;r<aoa.length;r++){
+      var a=aoa[r]; if(!a||a[map.time]==null) continue;
+      var t=toDate(a[map.time]); if(!t) continue;
+      rows.push({t:t,
+        ptu:+a[map.ptouser]||0,
+        soc:parseFloat(String(a[map.soc]||"").replace("%",""))||0,
+        etu:+a[map.etouser]||0, echg:+a[map.echg]||0, edis:+a[map.edischg]||0,
+        tbat:+a[map.tbat]||0});
+    }
+  });
+}
+function analyze(rows){
+  rows.sort(function(a,b){return a.t-b.t;});
+  var seen={},clean=[];
+  for(var i=0;i<rows.length;i++){var k=+rows[i].t; if(!seen[k]){seen[k]=1;clean.push(rows[i]);}}
+  rows=clean;
+  var NOM=4/60, byDay={}, hourSum=new Array(24).fill(0), hourN=new Array(24).fill(0);
+  /* longest stretch with no grid charging: a charge event = eChgDay rising vs the
+     previous reading (accounting for the midnight reset to 0). We track the gap between
+     consecutive charge events and keep the longest, plus the SOC drop across it. */
+  var longest={hours:0,socStart:null,socEnd:null,from:null,to:null};
+  var runStart=null, runStartSOC=null, prevEchg=null, lastT=null, prevSOC=null;
+  for(i=0;i<rows.length;i++){
+    var r=rows[i], dt=i?(r.t-rows[i-1].t)/3600000:NOM;
+    if(dt<=0||dt>0.5) dt=NOM;
+    var key=r.t.getFullYear()+"-"+("0"+(r.t.getMonth()+1)).slice(-2)+"-"+("0"+r.t.getDate()).slice(-2);
+    var d=byDay[key]||(byDay[key]={date:key,toUser:0,chg:0,dischg:0,socMin:101,tbat:0,tn:0,peakByp:0});
+    d.toUser=Math.max(d.toUser,r.etu); d.chg=Math.max(d.chg,r.echg); d.dischg=Math.max(d.dischg,r.edis);
+    if(r.soc>0) d.socMin=Math.min(d.socMin,r.soc);
+    if(r.tbat){d.tbat+=r.tbat;d.tn++;}
+    var kwh=(r.ptu/1000)*dt;
+    if(isPeak(r.t)) d.peakByp+=kwh;
+    var h=r.t.getHours(); hourSum[h]+=r.ptu/1000; hourN[h]++;
+
+    /* charge-event detection */
+    var echg=r.echg;
+    // reset baseline at midnight (echg counter resets to ~0)
+    if(prevEchg!==null && echg < prevEchg-0.05) prevEchg=echg;
+    var charging = (prevEchg!==null) && (echg > prevEchg+0.02); // meaningful charge since last sample
+    if(runStart===null){ runStart=r.t; runStartSOC=r.soc; }
+    if(charging){
+      // close the current no-charge run at the previous sample
+      if(lastT){
+        var hrs=(lastT-runStart)/3600000;
+        if(hrs>longest.hours){
+          longest={hours:hrs,socStart:runStartSOC,socEnd:prevSOC,
+            from:runStart,to:lastT};
+        }
+      }
+      runStart=r.t; runStartSOC=r.soc;   // start a fresh run after this charge
+    }
+    prevEchg=echg; prevSOC=r.soc; lastT=r.t;
+  }
+  // close the final open run
+  if(runStart!==null && lastT){
+    var hrsF=(lastT-runStart)/3600000;
+    if(hrsF>longest.hours) longest={hours:hrsF,socStart:runStartSOC,socEnd:prevSOC,from:runStart,to:lastT};
+  }
+
+  var daily=Object.keys(byDay).sort().map(function(k){
+    var d=byDay[k]; d.tbat=d.tn?d.tbat/d.tn:0; if(d.socMin>100)d.socMin=0; delete d.tn; return d;});
+  var hourly=hourSum.map(function(s,i){return hourN[i]?s/hourN[i]:0;});
+  var sum=function(f){return daily.reduce(function(a,d){return a+d[f];},0);};
+  return {daily:daily,hourly:hourly,rows:rows.length,
+    toUser:sum("toUser"),chg:sum("chg"),dischg:sum("dischg"),peakByp:sum("peakByp"),
+    longestNoCharge:longest,
+    from:daily[0]&&daily[0].date, to:daily.length&&daily[daily.length-1].date,
+    summer:rows.length?isSummer(rows[0].t):true};
+}
+
+/* ═══════════ BILL PARSING ═══════════ */
+function grab(t,re,i){var m=t.match(re);return m?parseFloat(String(m[i||1]).replace(/,/g,"")):null;}
+function parseBill(t){
+  t=t.replace(/\u00a0/g," ");
+  var b={};
+  b.total   = grab(t,/Total\s*Use\s*\(kWh\)\s*:?\s*([\d,]+(?:\.\d+)?)/i);
+  b.peak    = grab(t,/On[-\s]?Peak\s*Use\s*\(kWh\)\s*:?\s*([\d,]+(?:\.\d+)?)/i);
+  b.off     = grab(t,/Off[-\s]?Peak\s*Usage?\s*\(kWh\)\s*:?\s*([\d,]+(?:\.\d+)?)/i);
+  b.supply  = grab(t,/SUPPLY\s*\$?\s*([\d,]+\.\d{2})/i);
+  b.deliv   = grab(t,/DELIVERY\s*\$?\s*([\d,]+\.\d{2})/i);
+  b.tax     = grab(t,/TAXES?\s*&?\s*SURCHARGES?\s*\$?\s*([\d,]+\.\d{2})/i);
+  b.cost    = grab(t,/Service\s*Period\s*Total\s*\$?\s*([\d,]+\.\d{2})/i);
+  var r={};
+  r.genOn  = grab(t,/On\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+  r.genOff = grab(t,/Off\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+  var all=t.match(/(?:On|Off)\s*Peak\s*Energy\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/gi)||[];
+  if(all.length>=4){ /* second pair = distribution block */
+    r.distOn =parseFloat(all[2].match(/([\d.]+)\s*$/)[1]);
+    r.distOff=parseFloat(all[3].match(/([\d.]+)\s*$/)[1]);
+  }
+  r.cust   = grab(t,/Customer\s*Chr?g?e?\s*\$?\s*([\d.]+)/i);
+  r.proc   = grab(t,/Procurement\s*Cost\s*Adj\s+[\d,]+\s*kWh\s*[Xx×]\s*\$?([\d.]+)/i);
+  r.credit = grab(t,/Energy\s*Wise\s*Rewards?\s*Cr\.?\s*[-−]?\$?\s*([\d.]+)/i);
+  b.rates=r;
+  var dm=t.match(/Read\s*Dates?\s*:?\s*(\d{1,2})\/(\d{1,2})\s*[-–]\s*(\d{1,2})\/(\d{1,2})/i);
+  if(dm){var y=(new Date()).getFullYear();
+    var ym=t.match(/(\d{4})/g); if(ym) y=+ym.filter(function(v){return +v>2000&&+v<2100;})[0]||y;
+    var sM=+dm[1], sD=+dm[2], eM=+dm[3], eD=+dm[4];
+    var eY = eM<sM ? y+1 : y;   // period crossing Dec→Jan: end is next year
+    b.start=y+"-"+("0"+sM).slice(-2)+"-"+("0"+sD).slice(-2);
+    b.end  =eY+"-"+("0"+eM).slice(-2)+"-"+("0"+eD).slice(-2);}
+  return b;
+}
+function fillBill(b){
+  var set=function(id,v){var e=$(id); if(v!=null&&!isNaN(v)){e.value=v;e.classList.add("auto");}};
+  set("bTotal",b.total); set("bPeak",b.peak); set("bOff",b.off);
+  set("bSupply",b.supply); set("bDeliv",b.deliv); set("bTax",b.tax); set("bCost",b.cost);
+  if(b.start)$("bStart").value=b.start; if(b.end)$("bEnd").value=b.end;
+  if(b.rates)S.rates=b.rates;
+  var got=[b.total,b.cost].filter(function(v){return v!=null;}).length;
+  $("s2no").classList.toggle("done",got===2);
+  checkReady();
+  toast(got===2?"Bill extracted — check the fields":"Partial extract — fill the gaps manually");
+}
+
+/* ═══════════ READINESS ═══════════ */
+function readBillForm(){
+  var v=function(id){var x=parseFloat($(id).value);return isNaN(x)?null:x;};
+  return {total:v("bTotal"),peak:v("bPeak"),off:v("bOff"),supply:v("bSupply"),
+    deliv:v("bDeliv"),tax:v("bTax"),cost:v("bCost"),solar:v("bSolar"),start:$("bStart").value,end:$("bEnd").value};
+}
+function checkReady(){
+  var b=readBillForm(), ok=b.total>0&&b.cost>0;
+  $("s2no").classList.toggle("done",!!ok);
+  $("btnGen").disabled=!ok;
+}
+["bTotal","bPeak","bOff","bSupply","bDeliv","bTax","bCost"].forEach(function(id){
+  $(id).addEventListener("input",checkReady);});
+
+/* ═══════════ FILE HANDLERS ═══════════ */
+function chip(box,name,state,msg){
+  var el=document.createElement("div"); el.className="chip";
+  el.innerHTML='<span class="nm"></span><span class="st '+state+'"></span>';
+  el.children[0].textContent=name; el.children[1].textContent=msg;
+  box.appendChild(el); return el;
+}
+$("fLogs").addEventListener("change",function(e){
+  var files=[].slice.call(e.target.files); if(!files.length)return;
+  if(typeof XLSX==="undefined"){toast("Spreadsheet library didn't load — check connection");return;}
+  $("logChips").innerHTML=""; var rows=[],done=0,sources=[];
+  files.forEach(function(f){
+    var c=chip($("logChips"),f.name,"busy","reading");
+    var fr=new FileReader();
+    fr.onload=function(){
+      try{
+        var wb=XLSX.read(new Uint8Array(fr.result),{type:"array",cellDates:true});
+        var before=rows.length; parseWorkbook(wb,rows);
+        var got=rows.length-before;
+        sources.push({name:f.name,rows:got});
+        c.children[1].className="st ok";
+        c.children[1].textContent=got+" rows";
+      }catch(err){c.children[1].className="st err";c.children[1].textContent="failed";
+        sources.push({name:f.name,rows:0});}
+      if(++done===files.length) finishLogs(rows,sources);
+    };
+    fr.onerror=function(){c.children[1].className="st err";c.children[1].textContent="unreadable";
+      sources.push({name:f.name,rows:0});
+      if(++done===files.length) finishLogs(rows,sources);};
+    fr.readAsArrayBuffer(f);
+  });
+});
+function finishLogs(rows,sources){
+  if(!rows.length){toast("No recognisable telemetry found");return;}
+  S.logs=analyze(rows);
+  S.logs.sources=sources||[];
+  $("s1no").classList.add("done");
+  $("logSummary").innerHTML='<div class="rows" style="margin-top:12px">'+
+    '<div class="row"><div class="l">Days captured</div><div class="a">'+S.logs.daily.length+'</div></div>'+
+    '<div class="row"><div class="l">Telemetry rows</div><div class="a">'+S.logs.rows.toLocaleString()+'</div></div>'+
+    '<div class="row"><div class="l">Range</div><div class="a">'+S.logs.from+' → '+S.logs.to+'</div></div></div>';
+  toast(S.logs.daily.length+" days parsed");
+}
+/* PDF worker: browsers refuse `new Worker(crossOriginUrl)`, so a CDN worker
+   always degrades to main-thread parsing. Preference order:
+   1. vendored same-origin copy  2. CDN fetched into a blob URL  3. main thread. */
+var PDFW=null;
+function ensurePdfWorker(){
+  if(PDFW) return PDFW;
+  var LOCAL="pdf.worker.min.js";
+  var CDN="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  PDFW=new Promise(function(resolve){
+    if(typeof pdfjsLib==="undefined"){resolve("nolib");return;}
+    fetch(LOCAL,{method:"HEAD"}).then(function(r){
+      if(!r.ok) throw 0;
+      pdfjsLib.GlobalWorkerOptions.workerSrc=LOCAL; resolve("local");
+    }).catch(function(){
+      fetch(CDN).then(function(r){if(!r.ok)throw 0;return r.text();}).then(function(src){
+        pdfjsLib.GlobalWorkerOptions.workerSrc=
+          URL.createObjectURL(new Blob([src],{type:"text/javascript"}));
+        resolve("blob");
+      }).catch(function(){
+        pdfjsLib.GlobalWorkerOptions.workerSrc=CDN; resolve("main");
+      });
+    });
+  });
+  return PDFW;
+}
+$("fBill").addEventListener("change",function(e){
+  var f=e.target.files[0]; if(!f)return;
+  $("billChips").innerHTML=""; var c=chip($("billChips"),f.name,"busy","reading");
+  var st=c.children[1];
+  if(typeof pdfjsLib==="undefined"){st.className="st err";st.textContent="no PDF lib";
+    toast("PDF library didn't load — use Paste or Manual");return;}
+  ensurePdfWorker().then(function(mode){
+    if(mode==="main") st.textContent="reading (slow)";
+    var fr=new FileReader();
+    fr.onload=function(){
+      pdfjsLib.getDocument({data:new Uint8Array(fr.result),
+        isEvalSupported:false,disableFontFace:true}).promise.then(function(pdf){
+        var jobs=[]; for(var p=1;p<=pdf.numPages;p++)
+          jobs.push(pdf.getPage(p).then(function(pg){return pg.getTextContent();}));
+        return Promise.all(jobs);
+      }).then(function(pages){
+        var txt=pages.map(function(tc){
+          return tc.items.map(function(i){return i.str;}).join(" ");}).join("\n");
+        if(!txt.replace(/\s/g,"")){
+          st.className="st err"; st.textContent="no text";
+          toast("That PDF has no text layer — it's a scan. Use Paste or Manual."); return;
+        }
+        $("billText").value=txt;
+        st.className="st ok"; st.textContent=mode==="main"?"read (main thread)":"read";
+        fillBill(parseBill(txt));
+      }).catch(function(err){
+        st.className="st err"; st.textContent="failed";
+        toast("Couldn't read that PDF — the text is in the Paste tab if it got that far");
+      });
+    };
+    fr.readAsArrayBuffer(f);
+  });
+});
+$("btnParseText").addEventListener("click",function(){
+  var t=$("billText").value.trim();
+  if(!t){toast("Paste the bill text first");return;}
+  fillBill(parseBill(t));
+});
+
+/* ═══════════ SEGMENTED ═══════════ */
+document.querySelectorAll(".seg button").forEach(function(b){
+  b.addEventListener("click",function(){
+    document.querySelectorAll(".seg button").forEach(function(x){x.classList.toggle("on",x===b);});
+    ["pdf","text","manual"].forEach(function(p){$("p-"+p).classList.toggle("on",p===b.dataset.pane);});
+  });
+});
+
+/* ═══════════ RENDER: CYCLE ═══════════ */
+function drawDial(hourly,summer){
+  var svg=$("dial"),NS="http://www.w3.org/2000/svg";
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  var cx=160,cy=160,r0=64,rmax=76,ph=peakHours(summer);
+  var max=Math.max.apply(null,hourly)||1;
+  function pt(a,r){var t=(a-90)*Math.PI/180;return[cx+r*Math.cos(t),cy+r*Math.sin(t)];}
+  function el(n,at){var e=document.createElementNS(NS,n);for(var k in at)e.setAttribute(k,at[k]);return e;}
+  /* contiguous peak runs → wedges */
+  var runs=[],cur=null;
+  ph.slice().sort(function(a,b){return a-b;}).forEach(function(h){
+    if(cur&&h===cur[1]) cur[1]=h+1; else {cur=[h,h+1];runs.push(cur);}});
+  runs.forEach(function(rn){
+    var a0=rn[0]*15,a1=rn[1]*15,ro=152,ri=r0-8;
+    var p0=pt(a0,ri),p1=pt(a1,ri),q0=pt(a0,ro),q1=pt(a1,ro),lg=(a1-a0)>180?1:0;
+    svg.appendChild(el("path",{d:"M"+p0[0]+" "+p0[1]+"A"+ri+" "+ri+" 0 "+lg+" 1 "+p1[0]+" "+p1[1]+
+      "L"+q1[0]+" "+q1[1]+"A"+ro+" "+ro+" 0 "+lg+" 0 "+q0[0]+" "+q0[1]+"Z",fill:"rgba(255,176,32,.10)"}));
+  });
+  for(var h=0;h<24;h++){
+    var pk=ph.indexOf(h)>-1, len=Math.max(2,(hourly[h]/max)*rmax);
+    var s=pt(h*15,r0),e=pt(h*15,r0+len);
+    svg.appendChild(el("line",{x1:s[0],y1:s[1],x2:e[0],y2:e[1],
+      stroke:pk?"var(--peak)":"var(--off)","stroke-width":8.5,"stroke-linecap":"round",opacity:pk?1:.88}));
+  }
+  svg.appendChild(el("circle",{cx:cx,cy:cy,r:r0-4,fill:"none",stroke:"var(--line)","stroke-width":1}));
+  [[0,"12a"],[6,"6a"],[12,"12p"],[18,"6p"]].forEach(function(m){
+    var p=pt(m[0]*15,161);
+    var t=el("text",{x:p[0],y:p[1],fill:"var(--dim)","font-size":"10.5","text-anchor":"middle",
+      "dominant-baseline":"middle","font-family":"ui-monospace,monospace"});
+    t.textContent=m[1];svg.appendChild(t);});
+}
+function renderCycle(){
+  var L=S.logs,B=S.bill;
+  drawDial(L.hourly,L.summer);
+  var ph=peakHours(L.summer), pv=ph.map(function(h){return L.hourly[h];});
+  var avg=pv.reduce(function(a,b){return a+b;},0)/pv.length;
+  $("dialBig").textContent=avg.toFixed(2);
+  $("lgPeak").textContent=L.summer?"Peak 2–7pm":"Peak 6–9am, 5–9pm";
+  var maxH=L.hourly.indexOf(Math.max.apply(null,L.hourly));
+  var hh=function(h){return (h%12||12)+(h<12?"am":"pm");};
+  var pct=B.total?(B.peak/B.total*100):0;
+  $("cycleStats").innerHTML=
+    '<div class="stat"><div class="v" style="color:var(--peak)">'+(B.peak||0)+'</div><div class="k">kWh billed on-peak</div></div>'+
+    '<div class="stat"><div class="v">'+pct.toFixed(1)+'<span style="font-size:13px">%</span></div><div class="k">of total usage</div></div>'+
+    '<div class="stat"><div class="v">'+hh(maxH)+'</div><div class="k">heaviest hour</div></div>';
+  $("shapeTitle").textContent = pct<5?"The shape is working for you":"Peak exposure is climbing";
+  $("shapeNote").innerHTML = pct<5
+    ? 'Grid draw thins out through the peak window and rebuilds after it — the battery is absorbing the expensive hours. Only <span class="num">'+B.peak+' kWh</span> of <span class="num">'+B.total+'</span> landed on-peak.'
+    : '<span class="num">'+B.peak+' kWh</span> of <span class="num">'+B.total+'</span> landed on-peak — <span class="num">'+pct.toFixed(1)+'%</span>. Check the dial for which hours are leaking, then look at what runs then.';
+  var strip=$("strip"); strip.innerHTML="";
+  var mx=Math.max.apply(null,L.daily.map(function(d){return d.toUser+d.chg;}))||1;
+  L.daily.forEach(function(d,i){
+    var c=document.createElement("div"); c.className="dcol"; c.tabIndex=0; c.setAttribute("role","button");
+    c.setAttribute("aria-label",d.date+", "+(d.toUser+d.chg).toFixed(1)+" kilowatt hours");
+    c.innerHTML='<i style="height:'+((d.toUser/mx)*74).toFixed(1)+'px;background:var(--off)"></i>'+
+                '<i style="height:'+((d.chg/mx)*74).toFixed(1)+'px;background:var(--batt)"></i>';
+    c.onclick=function(){selDay(i);};
+    c.onkeydown=function(ev){if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();selDay(i);}};
+    strip.appendChild(c);
+  });
+  $("stripA").textContent=L.from; $("stripB").textContent=L.to;
+  selDay(0);
+}
+function selDay(i){
+  var L=S.logs,d=L.daily[i],cols=$("strip").children;
+  for(var j=0;j<cols.length;j++) cols[j].classList.toggle("sel",j===i);
+  S.sel=i;
+  $("dayread").innerHTML=
+    '<div><div class="v">'+d.date.slice(5).replace("-","/")+'</div><div class="k">date</div></div>'+
+    '<div><div class="v">'+(d.toUser+d.chg).toFixed(1)+'</div><div class="k">kWh from grid</div></div>'+
+    '<div><div class="v" style="color:var(--batt)">'+d.chg.toFixed(1)+'</div><div class="k">into battery</div></div>'+
+    '<div><div class="v" style="color:'+(d.peakByp>0.5?"var(--peak)":"var(--text)")+'">'+d.peakByp.toFixed(2)+'</div><div class="k">peak-window kWh</div></div>';
+}
+
+/* ═══════════ RENDER: FLOW ═══════════ */
+function renderFlow(){
+  var L=S.logs,B=S.bill;
+  var gap=Math.max(0,B.total-L.toUser-L.chg), rt=L.chg?(L.dischg/L.chg*100):0;
+  var blended=B.cost/B.total, pctOf=function(v){return (v/B.total*100).toFixed(0);};
+  var chargeCost=L.chg*blended, lossKwh=L.chg-L.dischg;
+  $("flowBody").innerHTML=
+  '<div class="card"><h2>Where '+B.total+' kWh went</h2>'+
+  '<p class="note">Every metered kWh traced against inverter telemetry.</p>'+
+  '<div class="fbar"><span style="background:var(--off);flex:'+L.toUser.toFixed(1)+'"></span>'+
+  '<span style="background:var(--batt);flex:'+L.chg.toFixed(1)+'"></span>'+
+  '<span style="background:var(--loss);flex:'+(gap||0.01).toFixed(1)+'"></span></div>'+
+  '<div class="flist">'+
+  '<div class="frow"><i class="sw" style="background:var(--off)"></i><div class="fl"><b>Grid to inverter to home</b>'+
+  '<small>eToUserDay — grid power through the inverter, straight to your loads</small></div><div class="fv">'+L.toUser.toFixed(1)+'<em>'+pctOf(L.toUser)+'%</em></div></div>'+
+  '<div class="frow"><i class="sw" style="background:var(--batt)"></i><div class="fl"><b>Grid to battery</b>'+
+  '<small>eChgDay — grid power stored in the battery for later</small></div><div class="fv">'+L.chg.toFixed(1)+'<em>'+pctOf(L.chg)+'%</em></div></div>'+
+  '<div class="frow"><i class="sw" style="background:var(--loss)"></i><div class="fl"><b>Unaccounted</b>'+
+  '<small>Circuits outside inverter monitoring, plus rounding</small></div><div class="fv">'+gap.toFixed(1)+'<em>'+pctOf(gap)+'%</em></div></div>'+
+  '</div></div>'+
+
+  '<div class="caveat'+(L.chg/B.total>0.25?'':' okbox')+'"><div><b>'+pctOf(L.chg)+'% of the bill charged a battery.</b> '+
+  'That '+L.chg.toFixed(1)+' kWh cost about <span class="num">$'+chargeCost.toFixed(2)+'</span> at the blended rate — '+
+  'the line inverter-only reports leave out. Solar charging is what pulls this number down.</div></div>'+
+
+  '<div class="card"><h2>Battery round trip</h2><div class="rows">'+
+  '<div class="row"><div class="l">Charged in</div><div class="a">'+L.chg.toFixed(1)+' kWh</div></div>'+
+  '<div class="row"><div class="l">Battery to home</div><div class="a">'+L.dischg.toFixed(1)+' kWh</div></div>'+
+  '<div class="row tot"><div class="l">Round-trip efficiency</div><div class="a" style="color:'+(rt>85?'var(--off)':'var(--peak)')+'">'+rt.toFixed(1)+'%</div></div>'+
+  '</div><p class="note" style="margin-top:11px">'+lossKwh.toFixed(1)+' kWh lost to conversion and standby — about <span class="num">$'+(lossKwh*blended).toFixed(2)+'</span> this period.</p></div>'+
+
+  '<div class="card"><h2>Reconciliation</h2><div class="rows">'+
+  '<div class="row"><div class="l">Bill says</div><div class="a">'+B.total+' kWh</div></div>'+
+  '<div class="row"><div class="l">Logs account for</div><div class="a">'+(L.toUser+L.chg).toFixed(1)+' kWh</div></div>'+
+  '<div class="row tot"><div class="l">Difference</div><div class="a" style="color:'+(gap/B.total>0.1?'var(--peak)':'var(--off)')+'">'+gap.toFixed(1)+' kWh</div></div>'+
+  '</div><p class="note" style="margin-top:11px">This gap is expected, not a fault: the logs only capture inverter-path energy, so they always fall short of the metered bill by whatever your off-monitor appliances draw. The logs hedge against the bill — they explain part of it, they don\u2019t replace it. Watch the trend month to month rather than the single number.</p></div>';
+}
+
+/* ═══════════ RENDER: MODEL ═══════════ */
+function renderModel(){
+  var B=S.bill, r=S.rates||{};
+  var R={genOn:r.genOn||DEF.genOn, genOff:r.genOff||DEF.genOff, proc:r.proc||DEF.proc,
+    distOn:r.distOn||DEF.distOn, distOff:r.distOff||DEF.distOff,
+    cust:r.cust||DEF.cust, credit:r.credit||DEF.credit};
+  $("rGenOn").value=R.genOn; $("rGenOff").value=R.genOff;
+  $("rDistOn").value=R.distOn; $("rDistOff").value=R.distOff;
+  $("rateSrc").textContent = r.genOn ? "Read from your bill. Flat-rate figures below are estimates — swap in Schedule R when you have it."
+    : "Bill didn't expose per-kWh rates, so these are the defaults from a June 2026 Pepco bill. Edit to match yours.";
+  $("sKwh").value=Math.min(2000,Math.max(100,Math.round(B.total)));
+  $("sPeak").value=B.total?(B.peak/B.total*100).toFixed(2):2.32;
+  calcModel();
+}
+function calcModel(){
+  var B=S.bill;
+  var g=function(id){return parseFloat($(id).value)||0;};
+  var billK=B.total, k=+$("sKwh").value, pct=+$("sPeak").value/100, on=k*pct, off=k-on;
+  var scale=k/billK;                                  // projection factor off the billed month
+  var atBilled=Math.abs(k-billK)<0.5 && Math.abs(pct-(B.peak/billK))<0.0001;
+  var credOn=$("tgEw").getAttribute("aria-checked")==="true";
+  var R=S.rates||{};
+  var proc=R.proc||DEF.proc, cust=R.cust||DEF.cust, cred=R.credit||DEF.credit;
+
+  /* TOU: the bill total is ground truth. At billed usage we show it verbatim; when the
+     slider projects a different month we scale the usage-driven parts and hold fixed
+     charges. We never reconstruct the bill from line items — real bills carry more lines
+     than any formula names, so reconstruction drifts. */
+  var tou;
+  if(atBilled){
+    tou=B.cost;
+  }else{
+    // usage-variable portion = everything except the fixed customer charge, scaled by usage;
+    // customer charge and credit are per-month fixed.
+    var variablePart=(B.cost - cust + (credOn?0:cred)); // credit already netted in B.cost; if turning it off, add it back
+    tou=cust + variablePart*scale;
+  }
+
+  /* FLAT: start from the real bill, swap ONLY the two components that differ between plans —
+     generation and distribution — and keep delivery-fixed + taxes exactly as billed (scaled). */
+  var touGen = on*(R.genOn||DEF.genOn) + off*(R.genOff||DEF.genOff) + k*proc;
+  var touDist= on*(R.distOn||DEF.distOn) + off*(R.distOff||DEF.distOff);
+  var flatGen= k*g("rFlatGen");
+  var flatDist=k*g("rFlatDist");
+  // flat = TOU total, minus TOU's gen+dist, plus flat's gen+dist
+  var flat = tou - touGen - touDist + flatGen + flatDist;
+  if(!credOn){ /* both totals already reflect credit state via tou; flat inherits it */ }
+
+  $("lKwh").textContent=k+" kWh";
+  $("lPeak").textContent=(+$("sPeak").value).toFixed(2)+"%";
+  $("vTou").textContent="$"+tou.toFixed(2);
+  $("vFlat").textContent="$"+flat.toFixed(2);
+  var touWins=tou<flat, gap=Math.abs(tou-flat);
+  $("cTou").classList.toggle("win",touWins); $("cFlat").classList.toggle("win",!touWins);
+
+  /* breakeven: at what on-peak share do the gen+dist swaps equalise? solve directly.
+     flat-tou = (flatGen+flatDist) - (touGen+touDist); depends on `on`. */
+  var be=null;
+  for(var p=0;p<=40;p+=0.05){
+    var o=k*p/100, f=k-o;
+    var tg=o*(R.genOn||DEF.genOn)+f*(R.genOff||DEF.genOff)+k*proc;
+    var td=o*(R.distOn||DEF.distOn)+f*(R.distOff||DEF.distOff);
+    if((flatGen+flatDist) < (tg+td)){ be=p; break; }   // flat cheaper below this share → TOU loses above
+  }
+  var msg = gap<1
+    ? "<b>Effectively a tie</b> — $"+gap.toFixed(2)+" apart. At this usage shape the rate plan barely matters."
+    : "<b>"+(touWins?"Time-of-use":"Flat rate")+" wins by $"+gap.toFixed(2)+"</b> per month, about $"+(gap*12).toFixed(0)+" a year at this shape.";
+  if(be!=null) msg+=" Breakeven sits near <b>"+be.toFixed(1)+"%</b> on-peak"+(pct*100<be?" — you're under it.":" — you're past it.");
+  else msg+=" TOU stays ahead across the whole slider range at these rates.";
+  if(!atBilled) msg+=" <span style='color:var(--dim)'>Projected from your billed month; fixed charges held, usage-driven charges scaled.</span>";
+  $("verdict").innerHTML=msg;
+}
+["sKwh","sPeak","rGenOn","rGenOff","rDistOn","rDistOff","rFlatGen","rFlatDist"].forEach(function(id){
+  $(id).addEventListener("input",function(){if(S.bill)calcModel();});});
+$("tgEw").addEventListener("click",function(){
+  var on=this.getAttribute("aria-checked")==="true";
+  this.setAttribute("aria-checked",on?"false":"true"); if(S.bill)calcModel();});
+
+/* ═══════════ GENERATE ═══════════ */
+$("btnGen").addEventListener("click",function(){
+  var b=readBillForm();
+  if(!(b.total>0&&b.cost>0)){toast("Total kWh and total cost are required");return;}
+  if(b.peak==null&&b.off!=null) b.peak=b.total-b.off;
+  if(b.off==null&&b.peak!=null) b.off=b.total-b.peak;
+  if(b.peak==null){b.peak=0;b.off=b.total;}
+  S.bill=b;
+  if(!S.logs){
+    toast("No logs — cost views only");
+    S.logs={daily:[],hourly:new Array(24).fill(0),rows:0,toUser:0,chg:0,dischg:0,peakByp:0,
+      from:b.start||"",to:b.end||"",summer:true};
+  }
+  document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("locked");});
+  ["cycle","flow","model","report"].forEach(function(v){$(v+"Empty").hidden=true;$(v+"Body").hidden=false;});
+  if(S.logs.rows) renderCycle(); else {$("cycleEmpty").hidden=false;$("cycleBody").hidden=true;}
+  renderFlow(); renderModel();
+  $("btnExport").disabled=false;
+  saveHistory(b);
+  renderReport();
+  go("cycle"); toast("Analysis ready");
+});
+function renderReport(){
+  if(!S.bill)return;
+  var r=buildReport();
+  $("reportMount").innerHTML=reportHTML(r,false);
+  if(!document.getElementById("rptScoped")){
+    var st=document.createElement("style"); st.id="rptScoped";
+    st.textContent="#reportMount{"+  /* light context */
+      "color:#1a1f36;font-size:13px;line-height:1.55}"+
+      "#reportMount .hero{background:#0b1020;color:#fff;border-radius:12px;padding:22px 20px;margin-bottom:18px;text-align:center}"+
+      "#reportMount .hero .htitle{font-size:22px;font-weight:700}"+
+      "#reportMount .hero .hsub{color:#aeb6d6;font-size:12px;margin-top:5px}"+
+      "#reportMount .hero .hconf{color:#7d86ad;font-size:10.5px;margin-top:8px;font-family:ui-monospace,monospace}"+
+      "#reportMount .verdict{border:1px solid;border-left-width:4px;border-radius:8px;padding:11px 14px;margin-bottom:16px;background:#fafbfe}"+
+      "#reportMount .verdict b{font-size:13px}#reportMount .verdict p{color:#555d7e;font-size:12px;margin-top:3px}"+
+      "#reportMount .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:20px}"+
+      "#reportMount .kpi{border:1px solid #dfe3ef;border-radius:8px;padding:10px 12px}"+
+      "#reportMount .kpi span{color:#6b7394;font-size:10px;text-transform:uppercase;letter-spacing:.05em}"+
+      "#reportMount .kpi b{display:block;font-size:19px;margin-top:3px;letter-spacing:-.02em}"+
+      "#reportMount h2{font-size:14px;font-weight:700;margin:22px 0 9px;padding-bottom:5px;border-bottom:2px solid #1a1f36;color:#1a1f36}"+
+      "#reportMount table{width:100%;border-collapse:collapse;margin-bottom:6px}"+
+      "#reportMount td,#reportMount th{padding:6px 8px;border-bottom:1px solid #eef0f6;text-align:left}"+
+      "#reportMount th{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#8a92b2;font-weight:600}"+
+      "#reportMount td.r,#reportMount th.r{text-align:right;font-variant-numeric:tabular-nums}"+
+      "#reportMount tr.tot td{border-top:1.5px solid #1a1f36;border-bottom:0;font-weight:700;padding-top:8px}"+
+      "#reportMount .alert{border-left:3px solid #ccc;background:#fafbfe;padding:8px 12px;border-radius:0 6px 6px 0;margin:8px 0}"+
+      "#reportMount .alert b{font-size:12.5px}#reportMount .alert p{font-size:11.5px;color:#555d7e;margin-top:2px}"+
+      "#reportMount .muted{color:#8a92b2;font-size:11.5px}#reportMount .mono{font-family:ui-monospace,monospace;font-size:11px}"+
+      "#reportMount .foot{margin-top:24px;padding-top:12px;border-top:1px solid #dfe3ef;color:#8a92b2;font-size:10.5px}";
+    document.head.appendChild(st);
+  }
+}
+$("btnExport2") && $("btnExport2").addEventListener("click",function(){$("btnExport").click();});
+$("btnPrint") && $("btnPrint").addEventListener("click",function(){
+  if(!S.bill){toast("Generate first");return;}
+  var r=buildReport();
+  var w=window.open("","_blank");
+  if(!w){toast("Allow pop-ups to print");return;}
+  w.document.write("<!DOCTYPE html><html><head><meta charset='utf-8'>"+
+    "<title>HEA report "+(S.bill.start||"")+"</title><style>"+reportCSS()+"</style></head><body>"+
+    reportHTML(r,true)+"<script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script>"+
+    "</body></html>");
+  w.document.close();
+});
+
+/* ═══════════ SAMPLE ═══════════ */
+$("btnSample").addEventListener("click",function(){
+  var dirty=S.logs||S.bill||readBillForm().total>0||$("billText").value.trim();
+  if(dirty && !confirm("Load demo data? This replaces anything you've entered.")) return;
+  var H=[1.239,0.874,0.688,0.387,0.307,0.312,0.375,0.235,0.286,0.144,0.156,0.109,0.234,0.232,0,0.031,0.109,0.164,0.075,0.68,0.985,1.18,1.471,1.593];
+  var D=[[9.7,5.5,5.5,30,0],[18.6,9.6,6,26,.44],[13.3,6.1,5.5,30,.44],[12.9,6.9,6.3,23,0],[14.4,8.3,7.3,21,2.08],
+  [5.2,3.6,6.7,29,0],[14,8.9,6.8,30,0],[15.2,9.5,6.8,30,0],[15.6,8.9,7,29,.14],[12.6,8.8,7.8,35,.3],
+  [11.5,7.3,7.7,14,.58],[12.9,8.8,6.2,30,1.85],[8.3,5.6,10.7,33,0],[16.3,9.2,6.8,25,.07],[16.5,9.2,5.9,25,.37],
+  [10.6,7,6,25,.29],[13.2,8,5.7,25,0],[10.9,6.1,7.3,17,1.39],[4.5,2.9,5.4,29,0],[14.6,10.3,6.5,25,0],
+  [13.3,9.2,6.2,25,.29],[7.6,4.8,5.7,25,0],[5.3,4,5.7,25,0],[11.9,8.3,6,25,0],[15,10.5,6,24,0],
+  [11,7.2,6.8,14,.7],[9.3,5.9,7.1,25,1.55],[6.5,5,5.9,37,0],[9.6,6.9,5.3,25,0],[9.4,6.9,7,25,0]];
+  var daily=D.map(function(a,i){
+    var d=new Date(2026,5,2+i);
+    return {date:d.getFullYear()+"-06-"+("0"+(2+i)).slice(-2),toUser:a[0],chg:a[1],dischg:a[2],socMin:a[3],peakByp:a[4],tbat:28.7};});
+  daily.forEach(function(d,i){if(2+i>30){var dd=new Date(2026,5,2+i);
+    d.date=dd.getFullYear()+"-"+("0"+(dd.getMonth()+1)).slice(-2)+"-"+("0"+dd.getDate()).slice(-2);}});
+  S.logs={daily:daily,hourly:H,rows:10810,toUser:349.7,chg:219.2,dischg:195.6,peakByp:10.49,
+    from:"2026-06-02",to:"2026-07-01",summer:true};
+  $("bStart").value="2026-06-02"; $("bEnd").value="2026-07-01";
+  [["bTotal",604],["bPeak",14],["bOff",590],["bSupply",72.11],["bDeliv",38.13],["bTax",23.65],["bCost",133.89]]
+    .forEach(function(p){$(p[0]).value=p[1];$(p[0]).classList.add("auto");});
+  S.rates={genOn:.21235,genOff:.11251,proc:.0045355,distOn:.20359,distOff:.05821,cust:8.44,credit:8};
+  $("s1no").classList.add("done"); $("s2no").classList.add("done");
+  $("logSummary").innerHTML='<div class="rows" style="margin-top:12px">'+
+    '<div class="row"><div class="l">Days captured</div><div class="a">30</div></div>'+
+    '<div class="row"><div class="l">Telemetry rows</div><div class="a">10,810</div></div>'+
+    '<div class="row"><div class="l">Range</div><div class="a">2026-06-02 → 2026-07-01</div></div></div>';
+  checkReady(); $("btnGen").click();
+});
+
+/* ═══════════ HISTORY ═══════════ */
+function saveHistory(b){
+  var h=store("hea.history")||[];
+  var key=(b.start||"")+"|"+(b.end||"");
+  h=h.filter(function(x){return (x.start||"")+"|"+(x.end||"")!==key;});
+  h.push({start:b.start,end:b.end,total:b.total,cost:b.cost,peak:b.peak});
+  h.sort(function(a,c){return (a.start||"")<(c.start||"")?-1:1;});
+  store("hea.history",h); renderHistory();
+}
+function renderHistory(){
+  var h=store("hea.history")||[];
+  $("histCard").hidden=!h.length;
+  $("histList").innerHTML=h.map(function(m,i){
+    return '<div class="hrow"><div class="hd"><b>'+(m.start||"?")+' → '+(m.end||"?")+'</b>'+
+    '<small>'+m.total+' kWh · '+(m.total?(m.cost/m.total).toFixed(4):"—")+'/kWh</small></div>'+
+    '<div class="hv">$'+(+m.cost).toFixed(2)+'</div><button class="x" data-h="'+i+'" aria-label="Remove">×</button></div>';
+  }).join("");
+  $("histList").querySelectorAll(".x").forEach(function(b){
+    b.addEventListener("click",function(){
+      var h=store("hea.history")||[]; h.splice(+b.dataset.h,1); store("hea.history",h); renderHistory();});
+  });
+}
+
+/* ═══════════ EXPORT ═══════════ */
+/* ═══════════ DETAILED REPORT BUILDER ═══════════ */
+/* Every figure derives from the imported bill (S.bill) and log analysis (S.logs).
+   Nothing month-specific is hardcoded. */
+function buildReport(){
+  var B=S.bill,L=S.logs;
+  var blended=B.cost/B.total;
+  var days=L.daily.length|| (B.start&&B.end? Math.round((new Date(B.end)-new Date(B.start))/864e5)+1 : 0);
+  var gap=Math.max(0,B.total-L.toUser-L.chg), gapPct=gap/B.total*100;
+  var rt=L.chg?(L.dischg/L.chg*100):0, rtLoss=L.chg-L.dischg;
+  var offPct=B.total?((B.total-B.peak)/B.total*100):0;
+  var peakPct=B.total?(B.peak/B.total*100):0;
+  var chargeCost=L.chg*blended;
+  var g=function(id){return parseFloat($(id).value)||0;};
+
+  /* flat-vs-TOU using the model's live inputs */
+  var R=S.rates||{}, cust=R.cust||DEF.cust, cred=R.credit||DEF.credit;
+  var on=B.peak, off=B.total-B.peak;
+  var touGen=on*(R.genOn||DEF.genOn)+off*(R.genOff||DEF.genOff)+B.total*(R.proc||DEF.proc);
+  var touDist=on*(R.distOn||DEF.distOn)+off*(R.distOff||DEF.distOff);
+  var flat=B.cost - touGen - touDist + B.total*g("rFlatGen") + B.total*g("rFlatDist");
+  var savingsVsFlat=flat-B.cost;                 // +ve → TOU cheaper
+  var touWins=savingsVsFlat>0;
+
+  /* SOC + battery temp ranges from telemetry */
+  var socMins=L.daily.map(function(d){return d.socMin;}).filter(function(x){return x>0;});
+  var socLo=socMins.length?Math.min.apply(null,socMins):null;
+  var tbats=L.daily.map(function(d){return d.tbat;}).filter(function(x){return x>0;});
+  var tbatAvg=tbats.length?tbats.reduce(function(a,b){return a+b;},0)/tbats.length:null;
+
+  /* weekly period-by-period averages */
+  var weeks=[]; var wk=null;
+  L.daily.forEach(function(d,i){
+    if(i%7===0){wk={from:d.date,to:d.date,toUser:0,chg:0,dischg:0,n:0,socSum:0};weeks.push(wk);}
+    wk.to=d.date; wk.toUser+=d.toUser; wk.chg+=d.chg; wk.dischg+=d.dischg; wk.socSum+=d.socMin; wk.n++;
+  });
+
+  /* month-over-month savings history from stored bills */
+  var hist=(store("hea.history")||[]).slice().sort(function(a,b){return (a.start||"")<(b.start||"")?1:-1;});
+
+  /* ---------- verdict logic (transparent, from real metrics) ---------- */
+  /* The reconciliation gap is STRUCTURAL, not an anomaly: logs only ever capture
+     inverter-path energy, so they always fall short of the metered bill by whatever
+     the off-monitor appliances draw. It's informational, never a warning, and never
+     drives the verdict. */
+  var flags=[];
+  flags.push({sev:"info",t:"Off-monitor load "+gapPct.toFixed(0)+"% of the bill",
+    d:"Logs capture "+(L.toUser+L.chg).toFixed(0)+" kWh of the "+B.total+" kWh metered — the "+gap.toFixed(0)+
+      " kWh difference is your appliances on circuits the inverter doesn't see (water heater, range, etc.). Expected; the logs hedge against the bill, they don't replace it."});
+  if(rt>0&&rt<86) flags.push({sev:"warn",t:"Battery round-trip "+rt.toFixed(0)+"%",
+    d:"Below the 86% floor for a healthy pack — "+rtLoss.toFixed(0)+" kWh lost to conversion and standby this period. Worth watching for a downward trend across months."});
+  else if(rt>=86) flags.push({sev:"good",t:"Battery round-trip "+rt.toFixed(0)+"%",
+    d:"At or above the 86% target — "+rtLoss.toFixed(0)+" kWh lost to conversion and standby, normal for a healthy LiFePO4 pack."});
+  if(L.chg/B.total>0.30) flags.push({sev:"info",t:"Grid charged "+(L.chg/B.total*100).toFixed(0)+"% of the bill",
+    d:(L.chg).toFixed(0)+" kWh (~$"+chargeCost.toFixed(0)+") went into the battery from the grid. Solar charging is what brings this down."});
+  if(peakPct<5) flags.push({sev:"good",t:"On-peak exposure "+peakPct.toFixed(1)+"%",
+    d:"Only "+B.peak+" kWh landed in the 2–7pm window — the battery is absorbing the expensive hours well."});
+
+  /* ---------- battery coverage: discharge as a share of inverter-SERVED load ----------
+     The battery can only cover loads wired through the inverter, so we measure against
+     what the inverter actually served (grid-to-load bypass + battery discharge), NOT the
+     whole bill. Under 35% means the battery is carrying too little of the load it could. */
+  var inverterServed=L.toUser+L.dischg;
+  var batteryCoverage=inverterServed?(L.dischg/inverterServed*100):0;
+  if(batteryCoverage>0){
+    if(batteryCoverage<35) flags.push({sev:"warn",t:"Battery coverage "+batteryCoverage.toFixed(0)+"%",
+      d:"The battery served only "+batteryCoverage.toFixed(0)+"% of the inverter-path load this period — below the 35% floor. Worth checking charge scheduling, SOC reserve, or whether loads are running when the battery is depleted."});
+    else flags.push({sev:"good",t:"Battery coverage "+batteryCoverage.toFixed(0)+"%",
+      d:L.dischg.toFixed(0)+" kWh of the "+inverterServed.toFixed(0)+" kWh the inverter served came from the battery — at or above the 35% target."});
+  }
+
+  if(!touWins) flags.push({sev:"warn",t:"Flat rate would have been cheaper by $"+Math.abs(savingsVsFlat).toFixed(2),
+    d:"This month the TOU structure cost more than a flat plan would have, at the modeled flat rates."});
+
+  /* ---------- off-meter solar (manual entry) ---------- */
+  var solar=(B.solar!=null&&B.solar>0)?B.solar:0;
+  var solarAvoided=solar*blended;
+  // self-sufficiency: solar as a share of the total energy the home actually consumed
+  // (metered grid + off-meter solar). Grid = bill total; solar adds on top of it as demand met without the meter.
+  var trueConsumption=B.total+solar;
+  var selfSuffPct=trueConsumption?(solar/trueConsumption*100):0;
+  if(solar>0) flags.push({sev:"good",t:"Off-meter solar covered "+solar.toFixed(0)+" kWh",
+    d:"About $"+solarAvoided.toFixed(2)+" of grid draw avoided this period — energy that never touched the meter or the EG4."});
+
+  var overall = flags.some(function(f){return f.sev==="warn";}) ? "attention" : "healthy";
+
+  return {B:B,L:L,blended:blended,days:days,gap:gap,gapPct:gapPct,rt:rt,rtLoss:rtLoss,
+    offPct:offPct,peakPct:peakPct,chargeCost:chargeCost,flat:flat,savingsVsFlat:savingsVsFlat,
+    touWins:touWins,socLo:socLo,tbatAvg:tbatAvg,weeks:weeks,hist:hist,flags:flags,overall:overall,
+    solar:solar,solarAvoided:solarAvoided,trueConsumption:trueConsumption,selfSuffPct:selfSuffPct,
+    longestNoCharge:L.longestNoCharge||null,
+    batteryCoverage:batteryCoverage,inverterServed:inverterServed};
+}
+
+function reportHTML(r,forPrint){
+  var B=r.B,L=r.L;
+  var money=function(n){return "$"+(+n).toFixed(2);};
+  var f1=function(n){return (+n).toFixed(1);};
+  var verdictColor=r.overall==="healthy"?"#0a9d84":"#c0392b";
+  var verdictLabel=r.overall==="healthy"?"System Operating Normally":"System Needs Attention";
+  var sevColor={good:"#0a9d84",info:"#2d6cdf",warn:"#c8860a"};
+
+  var flagRows=r.flags.map(function(fl){
+    return "<div class='alert' style='border-left-color:"+sevColor[fl.sev]+"'>"+
+      "<b style='color:"+sevColor[fl.sev]+"'>"+fl.t+"</b><p>"+fl.d+"</p></div>";
+  }).join("")||"<p class='muted'>No alerts this period.</p>";
+
+  var weekRows=r.weeks.map(function(w){
+    return "<tr><td>"+w.from.slice(5)+"–"+w.to.slice(5)+"</td><td class='r'>"+f1(w.toUser)+"</td>"+
+      "<td class='r'>"+f1(w.chg)+"</td><td class='r'>"+f1(w.dischg)+"</td>"+
+      "<td class='r'>"+(w.n?(w.socSum/w.n).toFixed(0):"—")+"%</td></tr>";
+  }).join("");
+
+  var histRows=r.hist.length?r.hist.map(function(m){
+    return "<tr><td>"+(m.start||"?")+" – "+(m.end||"?")+"</td><td class='r'>"+m.total+" kWh</td>"+
+      "<td class='r'>"+money(m.cost)+"</td></tr>";
+  }).join(""):"<tr><td colspan='3' class='muted'>No prior months stored yet — each report you generate is saved here for comparison.</td></tr>";
+
+  var dailyRows=L.daily.map(function(d){
+    return "<tr><td>"+d.date+"</td><td class='r'>"+f1(d.toUser)+"</td><td class='r'>"+f1(d.chg)+"</td>"+
+      "<td class='r'>"+f1(d.dischg)+"</td><td class='r'>"+d.socMin+"%</td><td class='r'>"+d.peakByp.toFixed(2)+"</td></tr>";
+  }).join("");
+
+  var srcRows=(L.sources||[]).map(function(s){
+    return "<tr><td class='mono'>"+s.name+"</td><td class='r'>"+s.rows+" rows</td></tr>";
+  }).join("")||"<tr><td colspan='2' class='muted'>Source file list not captured this run.</td></tr>";
+
+  return ""+
+  "<div class='hero'><div class='htitle'>Home Energy Analysis</div>"+
+  "<div class='hsub'>"+(B.start||"?")+" to "+(B.end||"?")+" · "+r.days+" days · PEPCO R-TOU-P</div>"+
+  "<div class='hconf'>EG4 6000XP (6.0 kW) · Eco-Worthy 2× (10.24 kWh) · summer peak 2–7pm weekdays</div></div>"+
+
+  "<div class='verdict' style='border-color:"+verdictColor+"'>"+
+  "<b style='color:"+verdictColor+"'>"+verdictLabel+"</b>"+
+  "<p>Peak exposure "+r.peakPct.toFixed(1)+"% · off-peak "+r.offPct.toFixed(1)+"% · "+
+  (r.touWins?("TOU saved "+money(r.savingsVsFlat)+" vs flat"):("flat would save "+money(Math.abs(r.savingsVsFlat))))+
+  " · round-trip "+r.rt.toFixed(1)+"%.</p></div>"+
+
+  "<div class='kpis'>"+
+  "<div class='kpi'><span>Total usage</span><b>"+B.total+" kWh</b></div>"+
+  "<div class='kpi'><span>Total bill</span><b>"+money(B.cost)+"</b></div>"+
+  "<div class='kpi'><span>Blended rate</span><b>$"+r.blended.toFixed(4)+"</b></div>"+
+  "<div class='kpi'><span>Savings vs flat</span><b style='color:"+(r.touWins?"#0a9d84":"#c0392b")+"'>"+
+    (r.touWins?"+":"")+money(r.savingsVsFlat)+"</b></div>"+
+  "<div class='kpi'><span>Battery round-trip</span><b style='color:"+(r.rt>=86?"#0a9d84":"#c0392b")+"'>"+r.rt.toFixed(1)+"%</b></div>"+
+  "<div class='kpi'><span>Battery coverage</span><b style='color:"+(r.batteryCoverage>=35?"#0a9d84":"#c0392b")+"'>"+r.batteryCoverage.toFixed(0)+"%</b></div>"+
+  "<div class='kpi'><span>On-peak share</span><b>"+r.peakPct.toFixed(1)+"%</b></div>"+
+  (r.solar>0?"<div class='kpi'><span>Solar avoided</span><b style='color:#0a9d84'>"+money(r.solarAvoided)+"</b></div>"+
+  "<div class='kpi'><span>Off-meter solar</span><b>"+r.solar.toFixed(0)+" kWh</b></div>":"")+
+  "</div>"+
+
+  "<h2>Alerts &amp; Notifications</h2>"+flagRows+
+
+  "<h2>Cost Breakdown</h2><table>"+
+  "<tr><th>Component</th><th class='r'>Amount</th></tr>"+
+  "<tr><td>Supply — generation</td><td class='r'>"+money(B.supply||0)+"</td></tr>"+
+  "<tr><td>Delivery — distribution</td><td class='r'>"+money(B.deliv||0)+"</td></tr>"+
+  "<tr><td>Taxes &amp; surcharges</td><td class='r'>"+money(B.tax||0)+"</td></tr>"+
+  "<tr class='tot'><td>Service period total</td><td class='r'>"+money(B.cost)+"</td></tr></table>"+
+
+  "<h2>Rate Comparison — TOU vs Flat</h2><table>"+
+  "<tr><th>Plan</th><th class='r'>Modeled total</th></tr>"+
+  "<tr><td>Time-of-use (billed)</td><td class='r'>"+money(B.cost)+"</td></tr>"+
+  "<tr><td>Flat rate (modeled)</td><td class='r'>"+money(r.flat)+"</td></tr>"+
+  "<tr class='tot'><td>"+(r.touWins?"TOU advantage":"Flat advantage")+"</td>"+
+  "<td class='r' style='color:"+(r.touWins?"#0a9d84":"#c0392b")+"'>"+money(Math.abs(r.savingsVsFlat))+"</td></tr></table>"+
+  "<p class='muted'>Flat-rate generation and distribution are modeled estimates — replace with a real Schedule R bill to confirm.</p>"+
+
+  "<h2>Energy Flow — where "+B.total+" kWh went</h2><table>"+
+  "<tr><th>Path</th><th class='r'>kWh</th><th class='r'>Share</th></tr>"+
+  "<tr><td>Grid to inverter to home (eToUserDay)</td><td class='r'>"+f1(L.toUser)+"</td><td class='r'>"+(L.toUser/B.total*100).toFixed(0)+"%</td></tr>"+
+  "<tr><td>Grid to battery (eChgDay)</td><td class='r'>"+f1(L.chg)+"</td><td class='r'>"+(L.chg/B.total*100).toFixed(0)+"%</td></tr>"+
+  "<tr><td>Unaccounted (off-monitor circuits)</td><td class='r'>"+f1(r.gap)+"</td><td class='r'>"+r.gapPct.toFixed(0)+"%</td></tr></table>"+
+  "<div class='alert' style='border-left-color:#c8860a'><b style='color:#c8860a'>Grid charged "+(L.chg/B.total*100).toFixed(0)+"% of the bill</b>"+
+  "<p>"+f1(L.chg)+" kWh of battery charging came from the grid this period — about "+money(r.chargeCost)+" at the blended rate. This is the largest line an inverter-only report omits.</p></div>"+
+
+  (r.solar>0?
+  "<h2>Off-Meter Solar</h2><table>"+
+  "<tr><td>Solar generated (Home Assistant / MPPT)</td><td class='r'>"+f1(r.solar)+" kWh</td></tr>"+
+  "<tr><td>Grid draw avoided</td><td class='r'>"+money(r.solarAvoided)+"</td></tr>"+
+  "<tr><td>True household consumption</td><td class='r'>"+f1(r.trueConsumption)+" kWh</td></tr>"+
+  "<tr class='tot'><td>Self-sufficiency from solar</td><td class='r'>"+r.selfSuffPct.toFixed(1)+"%</td></tr></table>"+
+  "<p class='muted'>Manually entered — invisible to the Pepco meter and EG4. The bill total is unchanged; this is energy consumed that never drew from the grid.</p>"
+  :"")+
+
+  "<h2>Battery Performance</h2><table>"+
+  "<tr><td>Charged in</td><td class='r'>"+f1(L.chg)+" kWh</td></tr>"+
+  "<tr><td>Battery to home</td><td class='r'>"+f1(L.dischg)+" kWh</td></tr>"+
+  "<tr><td>Conversion / standby loss</td><td class='r'>"+f1(r.rtLoss)+" kWh (~"+money(r.rtLoss*r.blended)+")</td></tr>"+
+  "<tr><td>Round-trip efficiency</td><td class='r'>"+r.rt.toFixed(1)+"%</td></tr>"+
+  "<tr><td>Battery coverage of inverter load<br><span class='muted'>discharge ÷ (grid-to-load + discharge)</span></td><td class='r' style='color:"+(r.batteryCoverage>=35?"#0a9d84":"#c0392b")+"'>"+r.batteryCoverage.toFixed(1)+"%</td></tr>"+
+  (r.socLo!=null?"<tr><td>Minimum SOC observed</td><td class='r'>"+r.socLo+"%</td></tr>":"")+
+  (r.longestNoCharge&&r.longestNoCharge.hours>0.5?
+    "<tr><td>Longest stretch without grid charge</td><td class='r'>"+r.longestNoCharge.hours.toFixed(1)+" h"+
+    (r.longestNoCharge.socStart!=null&&r.longestNoCharge.socEnd!=null?
+      " ("+r.longestNoCharge.socStart+"%→"+r.longestNoCharge.socEnd+"%)":"")+"</td></tr>":"")+
+  (r.tbatAvg!=null?"<tr><td>Average battery temp</td><td class='r'>"+r.tbatAvg.toFixed(1)+"°C</td></tr>":"")+
+  "</table>"+
+
+  (r.weeks.length?"<h2>Period-by-Period Averages</h2><table>"+
+  "<tr><th>Week</th><th class='r'>To load</th><th class='r'>Charged</th><th class='r'>Discharged</th><th class='r'>Avg SOC</th></tr>"+
+  weekRows+"</table>":"")+
+
+  "<h2>Cumulative Savings Tracker</h2><table>"+
+  "<tr><th>Billing period</th><th class='r'>Usage</th><th class='r'>Bill</th></tr>"+histRows+"</table>"+
+
+  (L.daily.length?"<h2>Daily Detail</h2><table>"+
+  "<tr><th>Date</th><th class='r'>To load</th><th class='r'>Charged</th><th class='r'>Discharged</th><th class='r'>Min SOC</th><th class='r'>Peak kWh</th></tr>"+
+  dailyRows+"</table>":"")+
+
+  "<h2>Data Sources</h2><table><tr><th>File</th><th class='r'>Rows</th></tr>"+srcRows+
+  "<tr><td>Bill</td><td class='r'>"+(B.start||"")+" PEPCO PDF/entry</td></tr></table>"+
+
+  "<p class='foot'>Generated by HEA v7 on "+(new Date()).toISOString().slice(0,10)+
+  ". Bill figures drive all cost values; inverter telemetry drives the energy-flow and battery analysis. "+
+  "Flat-rate comparison is a model, not a quote.</p>";
+}
+
+function reportCSS(){
+  return "body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif;"+
+  "max-width:820px;margin:0 auto;padding:24px 20px;color:#1a1f36;font-size:13px;line-height:1.55}"+
+  ".hero{background:#0b1020;color:#fff;border-radius:12px;padding:22px 20px;margin-bottom:18px;text-align:center}"+
+  ".hero .htitle{font-size:22px;font-weight:700}"+
+  ".hero .hsub{color:#aeb6d6;font-size:12px;margin-top:5px}"+
+  ".hero .hconf{color:#7d86ad;font-size:10.5px;margin-top:8px;font-family:ui-monospace,monospace}"+
+  ".verdict{border:1px solid;border-left-width:4px;border-radius:8px;padding:11px 14px;margin-bottom:16px;background:#fafbfe}"+
+  ".verdict b{font-size:13px}.verdict p{color:#555d7e;font-size:12px;margin-top:3px}"+
+  ".kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:20px}"+
+  ".kpi{border:1px solid #dfe3ef;border-radius:8px;padding:10px 12px}"+
+  ".kpi span{color:#6b7394;font-size:10px;text-transform:uppercase;letter-spacing:.05em}"+
+  ".kpi b{display:block;font-size:19px;margin-top:3px;letter-spacing:-.02em}"+
+  "h2{font-size:14px;font-weight:700;margin:22px 0 9px;padding-bottom:5px;border-bottom:2px solid #1a1f36}"+
+  "table{width:100%;border-collapse:collapse;margin-bottom:6px}"+
+  "td,th{padding:6px 8px;border-bottom:1px solid #eef0f6;text-align:left}"+
+  "th{font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:#8a92b2;font-weight:600}"+
+  "td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}"+
+  "tr.tot td{border-top:1.5px solid #1a1f36;border-bottom:0;font-weight:700;padding-top:8px}"+
+  ".alert{border-left:3px solid #ccc;background:#fafbfe;padding:8px 12px;border-radius:0 6px 6px 0;margin:8px 0}"+
+  ".alert b{font-size:12.5px}.alert p{font-size:11.5px;color:#555d7e;margin-top:2px}"+
+  ".muted{color:#8a92b2;font-size:11.5px}.mono{font-family:ui-monospace,monospace;font-size:11px}"+
+  ".foot{margin-top:24px;padding-top:12px;border-top:1px solid #dfe3ef;color:#8a92b2;font-size:10.5px}"+
+  "@media print{body{max-width:100%}h2{break-after:avoid}table,.alert,.verdict{break-inside:avoid}}";
+}
+
+$("btnExport").addEventListener("click",function(){
+  if(!S.bill){toast("Generate the analysis first");return;}
+  var r=buildReport();
+  var html="<!DOCTYPE html><html><head><meta charset='utf-8'>"+
+    "<meta name='viewport' content='width=device-width,initial-scale=1'>"+
+    "<title>HEA report "+(S.bill.start||"")+"</title><style>"+reportCSS()+"</style></head><body>"+
+    reportHTML(r,true)+"</body></html>";
+  var url=URL.createObjectURL(new Blob([html],{type:"text/html"}));
+  var a=document.createElement("a"); a.href=url; a.download="HEA-report-"+(S.bill.start||"export")+".html";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},2000);
+  toast("Full report downloaded");
+});
+
+/* ═══════════ NAV ═══════════ */
+var TITLES={import:["Import","Logs and bill in · analysis out"],
+  cycle:["Cycle","When power actually moved"],
+  flow:["Flow","Bill reconciled to telemetry"],
+  model:["Model","Test flat rate against TOU"],
+  report:["Report","Full detailed analysis"]};
+function go(v){
+  document.querySelectorAll(".tab").forEach(function(x){x.classList.toggle("on",x.dataset.v===v);});
+  document.querySelectorAll(".view").forEach(function(s){s.classList.toggle("on",s.id==="v-"+v);});
+  $("hdrTitle").textContent=TITLES[v][0]; $("hdrSub").textContent=TITLES[v][1];
+  window.scrollTo(0,0);
+}
+document.querySelectorAll(".tab").forEach(function(b){
+  b.addEventListener("click",function(){
+    if(b.classList.contains("locked")){toast("Import a bill first");return;}
+    go(b.dataset.v);});
+});
+document.querySelectorAll("[data-goto]").forEach(function(b){
+  b.addEventListener("click",function(){go(b.dataset.goto);});});
+
+/* ═══════════ DRAG & DROP ═══════════ */
+[["dzLogs","fLogs"],["dzBill","fBill"]].forEach(function(p){
+  var z=$(p[0]);
+  ["dragenter","dragover"].forEach(function(e){z.addEventListener(e,function(ev){
+    ev.preventDefault();z.classList.add("over");});});
+  ["dragleave","drop"].forEach(function(e){z.addEventListener(e,function(ev){
+    ev.preventDefault();z.classList.remove("over");});});
+  z.addEventListener("drop",function(ev){
+    var f=ev.dataTransfer.files; if(!f.length)return;
+    $(p[1]).files=f; $(p[1]).dispatchEvent(new Event("change"));});
+});
+
+/* ═══════════ INSTALLABLE ═══════════ */
+(function(){
+  var icon="data:image/svg+xml,"+encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0B1020"/>'+
+    '<circle cx="256" cy="256" r="150" fill="none" stroke="#232B4A" stroke-width="14"/>'+
+    '<path d="M256 106v90" stroke="#3DD9C4" stroke-width="30" stroke-linecap="round"/>'+
+    '<path d="M362 362l-64-64" stroke="#FFB020" stroke-width="30" stroke-linecap="round"/>'+
+    '<circle cx="256" cy="256" r="22" fill="#E6EAF7"/></svg>');
+  var m={name:"HEA · Home Energy Analysis",short_name:"HEA",start_url:".",display:"standalone",
+    background_color:"#0B1020",theme_color:"#0B1020",orientation:"portrait",
+    icons:[{src:icon,sizes:"512x512",type:"image/svg+xml",purpose:"any"}]};
+  var l=document.createElement("link"); l.rel="manifest";
+  l.href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:"application/manifest+json"}));
+  document.head.appendChild(l);
+})();
+
+renderHistory();
 </script>
 </body>
 </html>
